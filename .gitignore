@@ -1,0 +1,92 @@
+########################################
+# General
+########################################
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+
+########################################
+# Python
+########################################
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.pytype/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+########################################
+# Python packaging
+########################################
+dist/
+build/
+pip-wheel-metadata/
+
+########################################
+# C / C++ build artifacts
+########################################
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.elf
+
+########################################
+# Assembly / IR / compiler outputs
+########################################
+*.s
+*.ll
+*.qbe
+*.ir
+
+########################################
+# CMake
+########################################
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# CLion build directories
+cmake-build-*/
+.idea/
+
+########################################
+# Project-specific build output
+########################################
+/build/
+/out/
+/tmp/
+
+########################################
+# Test artifacts
+########################################
+*.log
+*.trace
+*.profraw
+*.profdata
+
+########################################
+# Editor / IDE
+########################################
+.vscode/
+*.code-workspace
