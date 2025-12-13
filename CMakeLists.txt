@@ -3,6 +3,13 @@ project(zrlang C)
 
 set(CMAKE_C_STANDARD 11)
 
+# QBE
+add_custom_target(qbe ALL
+        COMMAND make -C ${CMAKE_CURRENT_SOURCE_DIR}/qbe
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/qbe
+        COMMENT "Building QBE"
+)
+
 # runtime
 add_library(zrlang STATIC
         runtime/runtime.c
