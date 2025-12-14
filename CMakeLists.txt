@@ -17,7 +17,6 @@ add_library(zrlang STATIC
         runtime/Object.c
         runtime/stdlib/String.c
         runtime/stdlib/Array.c
-        runtime/stdlib/LinkedList.c
         runtime/stdlib/RawBuffer.c
         runtime/stdlib/String.c)
 
