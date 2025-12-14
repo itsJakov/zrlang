@@ -13,7 +13,7 @@ static void init(Instance* self) {
 
 static void deinit(Instance* self) {
     Instance** array = get_array(self);
-    for (int i = 0; i <= arrlen(array); i++) {
+    for (int i = 0; i < arrlen(array); i++) {
         zre_release(array[i]);
     }
 

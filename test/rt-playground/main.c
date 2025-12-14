@@ -19,6 +19,7 @@ void printObject(Instance* obj) {
     zre_release(str); // [ARC] Exiting block
 }
 
+
 uint64_t printObjHash(Instance* obj) {
     Instance* hasher = zre_alloc(&Hasher);
     ((void (*)(Instance*))zre_method_virtual(hasher, "init"))(hasher);
@@ -46,9 +47,24 @@ void testHashing() {
     zre_field_set(school, "name", (uint64_t)"Aritmetika");
 
     zre_field_set(user0, "school", (uint64_t)school);
+    zre_retain(school);
 
     assert(printObjHash(user0) != printObjHash(user1));
 
+    extern Class Dictionary;
+    Instance* dict = zre_alloc(&Dictionary); // Dictionary<User, School>
+    ((void (*)(Instance*))zre_method_virtual(dict, "init"))(dict);
+
+    // dict[user0] = school
+    ((void (*)(Instance*, Instance*, Instance*))zre_method_virtual(dict, "set"))(dict, user0, school);
+
+    // var schoolFromDict = dict[school]
+    Instance* schoolFromDict = ((Instance* (*)(Instance*, Instance*))zre_method_virtual(dict, "get"))(dict, user0);
+    assert(schoolFromDict == school);
+
+    zre_release(schoolFromDict);
+    zre_release(dict);
+    zre_release(school);
     zre_release(user1);
     zre_release(user0);
 }
