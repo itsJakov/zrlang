@@ -6,8 +6,16 @@ extern Class User;
 extern Class SuperUser;
 extern Class School;
 extern Class Array;
-extern Class DebugArray;
-extern Class UserArray;
+
+void printObject(Instance* obj) {
+    // var str = newUser.toString()
+    Instance* str = ((Instance* (*)(Instance*))zre_method_virtual(obj, "toString"))(obj);
+
+    // str.printToStdout()
+    ((void (*)(Instance*))zre_method_virtual(str, "printToStdout"))(str);
+
+    zre_release(str); // [ARC] Exiting block
+}
 
 int main(void) {
     // var newUser = User.init()
@@ -26,15 +34,7 @@ int main(void) {
     // newUser.testClass()
     ((void (*)(Instance*))zre_method_virtual(newUser, "testClass"))(newUser);
 
-    {
-        // var str = newUser.toString()
-        Instance* str = ((Instance* (*)(Instance*))zre_method_virtual(newUser, "toString"))(newUser);
-
-        // str.printToStdout()
-        ((void (*)(Instance*))zre_method_virtual(str, "printToStdout"))(str);
-
-        zre_release(str); // [ARC] Exiting block
-    }
+    printObject(newUser);
 
     {
         // var school = School.init()
@@ -52,7 +52,7 @@ int main(void) {
 
     {
         // var allUsers = Array.init()
-        Instance* allUsers = zre_alloc(&UserArray);
+        Instance* allUsers = zre_alloc(&Array);
         ((void (*)(Instance*))zre_method_virtual(allUsers, "init"))(allUsers);
 
         // allUsers.append(newUser)

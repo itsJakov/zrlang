@@ -119,7 +119,7 @@ MethodImpl zre_method_lookup(Class* cls, const char* name, bool required) {
     }
 
     if (required) {
-        printf("Cannot find method named \"%s\" in class %s!\n", name, cls->name);
+        fprintf(stderr, "[zre] Cannot find method named \"%s\" in class %s!\n", name, cls->name);
         assert(0);
     }
     return NULL;

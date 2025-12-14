@@ -12,8 +12,10 @@ add_custom_target(qbe ALL
 
 # runtime
 add_library(zrlang STATIC
+        runtime/stb.c
         runtime/runtime.c
         runtime/Object.c
+        runtime/stdlib/String.c
         runtime/stdlib/Array.c
         runtime/stdlib/LinkedList.c
         runtime/stdlib/RawBuffer.c
@@ -28,7 +30,6 @@ add_executable(rt-playground
         test/rt-playground/School.c
         test/rt-playground/User.c
         test/rt-playground/SuperUser.c
-        test/rt-playground/UserArray.c
         test/rt-playground/DebugArray.c)
 
 target_link_libraries(rt-playground zrlang)

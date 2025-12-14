@@ -1,89 +1,68 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include "zre.h"
+#include "zre_utils.h"
+#include "stb_ds.h"
 
-#define INITIAL_CAPACITY 128
+DEFINE_FIELD(array, Instance**)
 
 static void init(Instance* self) {
-    zre_field_set(self, "count", 0);
-    zre_field_set(self, "capacity", INITIAL_CAPACITY);
-
-    Instance** data = malloc(sizeof(Instance*) * INITIAL_CAPACITY);
-    zre_field_set(self, "data", (uint64_t)data);
+    zre_field_set(self, "array", 0);
 }
 
 static void deinit(Instance* self) {
-    uint64_t count = zre_field_get(self, "count");
-    Instance** data = (Instance**)zre_field_get(self, "data");
-
-    for (size_t i = 0; i < count; i++) {
-        zre_release(data[i]);
+    Instance** array = get_array(self);
+    for (int i = 0; i <= arrlen(array); i++) {
+        zre_release(array[i]);
     }
-    free(data);
+
+    arrfree(array);
 }
 
 static Instance* get(Instance* self, uint64_t index) {
-    uint64_t count = zre_field_get(self, "count");
-    if (index >= count) {
-        printf("[zre] Array (size = %llu) out of bounds!\n", count);
+    Instance** array = get_array(self);
+    size_t len = arrlenu(array);
+    if (index >= len) {
+        printf("[zre] Array (count = %lu) out of bounds!\n", len);
         assert(0);
         return NULL;
     }
 
-    Instance** data = (Instance**)zre_field_get(self, "data");
+    Instance* item = array[index];
+    zre_retain(item); // [ARC] Methods returning objects need to return them retained
+    return item;
+}
 
-    Instance* obj = data[index];
-    zre_retain(obj); // [ARC] Methods returning objects need to return them retained
-    return obj;
+static uint64_t getCount(Instance* self) {
+    Instance** array = get_array(self);
+    return arrlenu(array);
 }
 
 static void append(Instance* self, Instance* item) {
-    uint64_t count = zre_field_get(self, "count");
-    uint64_t capacity = zre_field_get(self, "capacity");
-    Instance** data = (Instance**)zre_field_get(self, "data");
+    Instance** array = get_array(self);
 
-    if (count > capacity) {
-        capacity *= 2;
-        zre_field_set(self, "capacity", capacity);
-
-        Instance** newData = realloc(data, capacity);
-        if (newData == NULL) {
-            printf("[zre] Array (capacity = %llu) unable to grow!\n", count);
-            assert(0);
-        }
-        zre_field_set(self, "data", (uint64_t)newData);
-    }
-
-    zre_retain(item); // [ARC]
-    data[count] = item;
-    zre_field_set(self, "count", count+1);
+    zre_retain(item);
+    arrput(array, item);
+    set_array(self, array);
 }
 
 static Field fields[] = {
-        { .name = "data", .type = kFieldTypeUInt64 },
-        { .name = "count", .type = kFieldTypeUInt64 },
-        { .name = "capacity", .type = kFieldTypeUInt64 }
+    { "array", kFieldTypeUInt64 }
 };
 
 static Method instanceMethods[] = {
-        { .name = "init", .impl = init },
-        { .name = "deinit", .impl = deinit },
-        { .name = "get", .impl = get },
-        { .name = "append", .impl = append },
+    { "init", init },
+    { "deinit", deinit },
+    { "get", get },
+    { "getCount", getCount },
+    { "append", append },
 };
 
 Class Array = {
-        .name = "Array",
-        .super = NULL,
-        .fields = {
-                .len = 3,
-                .fields = fields
-        },
-        .staticMethods = { 0 },
-        .instanceMethods = {
-                .len = 4,
-                .methods = instanceMethods
-        }
+    .name = "Array",
+    .super = &RootObject,
+    .fields = { .len = 1, fields },
+    .staticMethods = { 0 },
+    .instanceMethods = { .len = 5, instanceMethods }
 };
