@@ -25,12 +25,12 @@ add_custom_target(qbe ALL
 add_library(zrlang STATIC
         runtime/stb.c
         runtime/runtime.c
-        runtime/Object.c
+        runtime/stdlib/Object.c
         runtime/stdlib/String.c
         runtime/stdlib/Array.c
         runtime/stdlib/Dictionary.c
         runtime/stdlib/String.c
-        runtime/Hasher.c)
+        runtime/stdlib/Hasher.c)
 
 target_include_directories(zrlang PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/runtime/include)
