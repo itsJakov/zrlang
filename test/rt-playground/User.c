@@ -1,13 +1,18 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "zre.h"
+#include "zre_utils.h"
+
+DEFINE_FIELD(username, char*)
+DEFINE_FIELD(school, Instance*)
 
 static void init(Instance* self) {
-    zre_field_set(self, "username", (uint64_t)"EmptyUser");
+    set_username(self, "EmptyUser");
 }
 
 static void greet(Instance* self, char* greeting) {
-    printf("%s, %s!\n", greeting, (char*)zre_field_get(self, "username"));
+    printf("%s, %s!\n", greeting, get_username(self));
 }
 
 static void testClass(Instance* self) {
@@ -15,6 +20,13 @@ static void testClass(Instance* self) {
     printf("\tTesting greet(\"Greetings\")\n");
     ((void (*)(Instance*, char*))zre_method_virtual(self, "greet"))(self, "Greetings");
     printf("All done!\n");
+}
+
+static void hashInto(Instance* self, Instance* hasher) {
+    char* username = get_username(self);
+    ((void (*)(Instance*, void*, uint64_t))zre_method_virtual(hasher, "combineRawBuffer"))(hasher, username, strlen(username));
+
+    ((void (*)(Instance*, Instance*))zre_method_virtual(hasher, "combine"))(hasher, get_school(self));
 }
 
 static Field fields[] = {
@@ -25,7 +37,8 @@ static Field fields[] = {
 static Method instanceMethods[] = {
         { .name = "init", .impl = init },
         { .name = "greet", .impl = greet },
-        { .name = "testClass", .impl = testClass }
+        { .name = "testClass", .impl = testClass },
+        { .name = "hashInto", .impl = hashInto }
 };
 
 Class User = {
@@ -37,7 +50,7 @@ Class User = {
         },
         .staticMethods = { 0 },
         .instanceMethods = {
-                .len = 3,
+                .len = 4,
                 .methods = instanceMethods
         }
 };

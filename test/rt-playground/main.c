@@ -1,7 +1,9 @@
+#include <assert.h>
 #include <stdio.h>
 
 #include "zre.h"
 
+extern Class Hasher;
 extern Class User;
 extern Class SuperUser;
 extern Class School;
@@ -17,7 +19,44 @@ void printObject(Instance* obj) {
     zre_release(str); // [ARC] Exiting block
 }
 
+uint64_t printObjHash(Instance* obj) {
+    Instance* hasher = zre_alloc(&Hasher);
+    ((void (*)(Instance*))zre_method_virtual(hasher, "init"))(hasher);
+
+    ((void (*)(Instance*, Instance*))zre_method_virtual(obj, "hashInto"))(obj, hasher);
+    uint64_t hash = ((uint64_t (*)(Instance*))zre_method_virtual(hasher, "finalize"))(hasher);
+    printf("%s -> %lx\n", obj->cls->name, hash);
+
+    zre_release(hasher);
+    return hash;
+}
+
+void testHashing() {
+    Instance* user0 = zre_alloc(&User);
+    ((void (*)(Instance*))zre_method_virtual(user0, "init"))(user0);
+    zre_field_set(user0, "username", (uint64_t)"jakovgz");
+
+    Instance* user1 = zre_alloc(&User);
+    ((void (*)(Instance*))zre_method_virtual(user1, "init"))(user1);
+    zre_field_set(user1, "username", (uint64_t)"jakovgz");
+
+    assert(printObjHash(user0) == printObjHash(user1));
+
+    Instance* school = zre_alloc(&School);
+    zre_field_set(school, "name", (uint64_t)"Aritmetika");
+
+    zre_field_set(user0, "school", (uint64_t)school);
+
+    assert(printObjHash(user0) != printObjHash(user1));
+
+    zre_release(user1);
+    zre_release(user0);
+}
+
 int main(void) {
+    testHashing();
+    return 0;
+
     // var newUser = User.init()
     Instance* newUser = zre_alloc(&SuperUser);
     ((void (*)(Instance*))zre_method_virtual(newUser, "init"))(newUser);

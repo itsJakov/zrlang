@@ -12,7 +12,7 @@ static Method instanceMethods[] = {
 
 Class School = {
         .name = "School",
-        .super = NULL,
+        .super = &RootObject,
         .fields = {
                 .len = 1,
                 .fields = fields
