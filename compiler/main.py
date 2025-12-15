@@ -1,23 +1,16 @@
 import subprocess
 import sys
 
-from compiler import compile_ir
+from compiler.compile import compile_ir
 from lang_ast import parse
 
 INPUT = """
-func main() {
-    var falseCon = Math.sub(5, 5) 
-    var trueCon = Math.sub(5, 0)
+class QBEUser : RootObject {
+    var firstName: String
     
-    if falseCon {
-        print "yes"
-    } else if trueCon {
-        print "yes, but..."
-    } else {
-        print "no"
+    func greet() {
+        var name = new User;
     }
-    
-    print "end"
 }
 """
 
@@ -27,7 +20,7 @@ if __name__ == "__main__":
     with open("ir.ssa", "w") as f:
         compile_ir(f, result)
 
-    res = subprocess.run(["/bin/bash", "-c", "\"/Users/jakovgz/Downloads/qbe/qbe\" -o out.s ir.ssa"])
+    res = subprocess.run(["/bin/bash", "-c", "\"../qbe/qbe\" -o out.s ir.ssa"])
     if res.returncode != 0:
         sys.exit("Error in IR")
 

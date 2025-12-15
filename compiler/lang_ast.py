@@ -1,7 +1,7 @@
 import sys
-from pathlib import Path
 from dataclasses import dataclass
-from typing import List, Optional
+from pathlib import Path
+from typing import Optional
 
 from lark import Lark, ast_utils, Transformer, Token
 
@@ -10,10 +10,7 @@ this_module = sys.modules[__name__]
 class _Ast(ast_utils.Ast):
     pass
 
-@dataclass
-class FullName(_Ast, ast_utils.AsList):
-    parts: List[str]
-
+# Expressions
 class _Expression(_Ast):
     pass
 
@@ -22,59 +19,50 @@ class IntExpr(_Expression):
     value: int
 
 @dataclass
-class StringExpr(_Expression):
-    value: str
-
-@dataclass
 class LocalExpr(_Expression):
-    local_name: str
+    local: str
 
 @dataclass
-class CallArgs(_Ast, ast_utils.AsList):
-    exprs: List[_Expression]
+class AllocExpr(_Expression):
+    cls_name: str
 
-@dataclass
-class CallExpr(_Expression):
-    full_name: FullName
-    args: CallArgs
-
+# Statements
 class _Statement(_Ast):
     pass
 
 @dataclass
-class Block(_Ast, ast_utils.AsList):
-    stmts: List[_Statement]
-
-@dataclass
 class VarStmt(_Statement):
-    local_name: str
-    expr: _Expression
+    local: str
+    expr: Optional[_Expression]
+
+# Class
+class _ClassMember(_Ast):
+    pass
 
 @dataclass
-class CallStmt(_Statement):
-    expr: CallExpr
+class ClassField(_ClassMember):
+    name: str
+    type: str
 
 @dataclass
-class PrintStmt(_Statement):
-    expr: _Expression
+class ClassDecl(_Ast):
+    name: str
+    super: str
+    members: list[_ClassMember]
 
-@dataclass
-class IfStmt(_Statement):
-    expr: _Expression
-    block: Block
-
-    elseIfExpr: Optional[_Expression]
-    elseIfBlock: Optional[Block]
-
-    elseBlock: Optional[Block]
-
+# Method / Function
 @dataclass
 class MethodDecl(_Ast):
     name: str
-    return_type: str
-    block: Block
+    block: list[_Statement]
 
 class ToAst(Transformer):
+    def block(self, l: list[_Statement]) -> list[_Statement]:
+        return l
+
+    def class_body(self, l: list[_ClassMember]) -> list[_ClassMember]:
+        return l
+
     def SIGNED_NUMBER(self, t: Token) -> int:
         return int(t.value)
 
@@ -84,8 +72,8 @@ class ToAst(Transformer):
     def CNAME(self, t: Token) -> str:
         return t.value
 
-    def start(self, method_decls: List[MethodDecl]):
-        return method_decls
+    def start(self, class_decls: list[ClassDecl]):
+        return class_decls
 
 parser = Lark(Path("grammar.lark").read_text(), parser="lalr")
 transformer = ast_utils.create_transformer(this_module, ToAst())

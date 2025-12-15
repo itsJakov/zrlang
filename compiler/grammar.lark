@@ -1,26 +1,26 @@
-start: method_decl*
+start: class_decl*
 
-full_name: CNAME ("." CNAME)*
+class_decl: "class" CNAME [":" CNAME] "{" class_body "}"
+class_body: class_member*
+?class_member: class_field | method_decl
+class_field: "var" CNAME ":" CNAME _END
 
-?expr: int_expr | string_expr | local_expr | call_expr
+method_decl: "func" CNAME "(" ")" block
+
+block: "{" statement* "}"
+?statement: var_stmt | call_stmt
+var_stmt: "var" CNAME ["=" expr] _END
+call_stmt: call_expr _END
+
+?expr: int_expr | string_expr | local_expr | member_expr | call_expr | alloc_expr
 int_expr: SIGNED_NUMBER
 string_expr: ESCAPED_STRING
 local_expr: CNAME
-call_args: [expr ("," expr)*]
-call_expr: full_name "(" call_args ")"
+member_expr: expr "." CNAME
+call_expr: expr "(" ")"
+alloc_expr: "new" CNAME
 
 _END: WS_INLINE? (NEWLINE | ";")
-block: statement*
-
-?statement: return_stmt | var_stmt | call_stmt | print_stmt | if_stmt
-return_stmt: "return" _END
-var_stmt: "var" CNAME "=" expr _END
-call_stmt: call_expr _END
-print_stmt: "print" expr _END
-
-if_stmt: "if" expr "{" block "}" ["else" "if" expr "{" block "}"] ["else" "{" block "}"]
-
-method_decl: "func" CNAME "(" ")" ["->" CNAME] "{" block "}"
 
 %import common.WS
 %import common.WS_INLINE
