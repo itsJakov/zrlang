@@ -1,7 +1,7 @@
 #include "zre.h"
 #include "zre_utils.h"
 
-#include <xxhash.h>
+#include "xxhash.h"
 
 typedef XXH64_state_t HasherState;
 

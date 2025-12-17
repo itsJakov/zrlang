@@ -18,7 +18,7 @@ static Instance* toString(Instance* self) {
     return string;
 }
 
-static uint64_t hashInto(Instance* self, Instance* hasher) {
+static void hashInto(Instance* self, Instance* hasher) {
     ((void (*)(Instance*, uint64_t))zre_method_virtual(hasher, "combineInteger"))(hasher, (uint64_t)self);
 }
 

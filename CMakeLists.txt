@@ -5,15 +5,6 @@ set(CMAKE_C_STANDARD 11)
 
 include(FetchContent)
 
-# xxHash
-FetchContent_Declare(
-        xxhash
-        GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git
-        GIT_TAG v0.8.3
-)
-FetchContent_MakeAvailable(xxhash)
-
-
 # QBE
 add_custom_target(qbe ALL
         COMMAND make -C ${CMAKE_CURRENT_SOURCE_DIR}/qbe
@@ -23,7 +14,8 @@ add_custom_target(qbe ALL
 
 # runtime
 add_library(zrlang STATIC
-        runtime/stb.c
+        runtime/lib/stb.c
+        runtime/lib/xxhash.c
         runtime/runtime.c
         runtime/stdlib/Object.c
         runtime/stdlib/String.c
@@ -32,10 +24,11 @@ add_library(zrlang STATIC
         runtime/stdlib/String.c
         runtime/stdlib/Hasher.c)
 
+target_include_directories(zrlang PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/runtime/lib)
+
 target_include_directories(zrlang PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/runtime/include)
-
-target_link_libraries(zrlang PRIVATE xxhash)
 
 # rt-playground
 add_executable(rt-playground
