@@ -1,10 +1,46 @@
 import sys
 
 from compiler.unit_context import UnitContext
-from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, LocalExpr, AllocExpr
+from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, LocalExpr, AllocExpr, CallStmt, \
+    MemberExpr, _Expression, CallExpr
 
+
+depth = 0 # TODO
+
+def convert_expr_into_symbol(f, expr: _Expression) -> str:
+    print(f"convert_expr_into_symbol {expr}")
+
+    def get_temp_sym() -> str:
+        global depth
+        sym = f"%_temp{depth}"
+        depth += 1
+        return sym
+
+    if isinstance(expr, IntExpr):
+        return f"{expr.value}"
+    elif isinstance(expr, LocalExpr):
+        return f"%{expr.local}"
+    elif isinstance(expr, MemberExpr):
+        sym = convert_expr_into_symbol(f, expr.expr)
+        temp = get_temp_sym()
+        f.write(f"\t{temp} =l call $zre_get_field(l {sym}, l ${expr.member})\n")
+        return temp
+    elif isinstance(expr, CallExpr):
+        call = expr
+        if isinstance(call.callee, MemberExpr):
+            sym = convert_expr_into_symbol(f, call.callee.expr)
+            f.write(f"\t%_fn =l call $zre_method_virtual(l {sym}, l ${call.callee.member})\n")
+            temp = get_temp_sym()
+            f.write(f"\t{temp} =l call %_fn()\n")
+            return temp
+        else:
+            sys.exit("Not a callable stmt!")
+    else:
+        sys.exit(f"Unsupported expr {expr}")
 
 def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
+    locals_to_release: list[str] = []
+
     for stmt in block:
         if isinstance(stmt, VarStmt):
             if stmt.expr is None:
@@ -15,8 +51,24 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
                 f.write(f"\t%{stmt.local} =l copy %{stmt.expr.local}\n")
             elif isinstance(stmt.expr, AllocExpr):
                 f.write(f"\t%{stmt.local} =l call $zre_alloc(l ${stmt.expr.cls_name})\n")
+                locals_to_release.append(stmt.local)
+
+        elif isinstance(stmt, CallStmt):
+            call = stmt.call
+            if isinstance(call.callee, MemberExpr):
+                method_name = call.callee.member
+                sym = convert_expr_into_symbol(f, call.callee.expr)
+
+                f.write(f"\t%_fn =l call $zre_method_virtual(l {sym}, l ${method_name})\n")
+                f.write(f"\tcall %_fn()\n")
+            else:
+                sys.exit("Not a callable stmt")
+
         else:
             sys.exit("Statement not supported yet!")
+
+    for local in locals_to_release:
+        f.write(f"\tcall $zre_release(l %{local})\n")
 
 def compile_method(f, method: MethodDecl, cls: ClassDecl, unit_ctx: UnitContext):
     f.write(f"function l ${cls.name}_{method.name}(l %self) {{\n")
@@ -30,7 +82,7 @@ def compile_cls(f, cls: ClassDecl, unit_ctx: UnitContext):
     fields: list[ClassField] = list(filter(lambda x: isinstance(x, ClassField), cls.members))
     f.write(f"data ${cls.name}_fields = {{\n")
     for field in fields:
-        f.write(f"\tl {unit_ctx.string_sym(field.name)}, l 0 #kFieldTypeStrongObject,\n")
+        f.write(f"\tl {unit_ctx.string_sym(field.name)}, l 0,\n")
     f.write("}\n")
 
     methods: list[MethodDecl] = list(filter(lambda x: isinstance(x, MethodDecl), cls.members))

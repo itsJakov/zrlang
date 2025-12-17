@@ -23,6 +23,16 @@ class LocalExpr(_Expression):
     local: str
 
 @dataclass
+class MemberExpr(_Expression):
+    expr: _Expression
+    member: str
+
+@dataclass
+class CallExpr(_Expression):
+    callee: _Expression
+    args: Optional[str] = None
+
+@dataclass
 class AllocExpr(_Expression):
     cls_name: str
 
@@ -34,6 +44,10 @@ class _Statement(_Ast):
 class VarStmt(_Statement):
     local: str
     expr: Optional[_Expression]
+
+@dataclass
+class CallStmt(_Statement):
+    call: CallExpr
 
 # Class
 class _ClassMember(_Ast):

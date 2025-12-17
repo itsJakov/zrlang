@@ -8,9 +8,12 @@ INPUT = """
 class QBEUser : RootObject {
     var firstName: String
     
-    func greet() {
+    func doSomething() {
         var name = new User;
+        
+        self.user().firstName.prefix.call()
     }
+    
 }
 """
 
