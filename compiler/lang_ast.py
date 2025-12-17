@@ -61,7 +61,7 @@ class ClassField(_ClassMember):
 @dataclass
 class ClassDecl(_Ast):
     name: str
-    super: str
+    super: Optional[str]
     members: list[_ClassMember]
 
 # Method / Function

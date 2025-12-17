@@ -93,7 +93,10 @@ def compile_cls(f, cls: ClassDecl, unit_ctx: UnitContext):
 
     f.write(f"export data ${cls.name} = {{\n")
     f.write(f"\tl {unit_ctx.string_sym(cls.name)},\n")
-    f.write(f"\tl ${cls.super},\n")
+    if cls.super is None:
+        f.write(f"\tl 0,\n")
+    else:
+        f.write(f"\tl ${cls.super},\n")
     f.write(f"\tl {len(fields)}, l ${cls.name}_fields,\n")
     f.write(f"\tl 0, l 0,\n")
     f.write(f"\tl {len(methods)}, l ${cls.name}_instanceMethods\n")
