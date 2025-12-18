@@ -39,6 +39,10 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
             return temp
         else:
             sys.exit("Not a callable stmt!")
+    elif isinstance(expr, AllocExpr):
+        temp = get_temp_sym()
+        f.write(f"\t{temp} =l call $zre_alloc(l ${expr.cls_name})\n")
+        return temp
     else:
         sys.exit(f"Unsupported expr {expr}")
 
@@ -53,9 +57,8 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
                 f.write(f"\t%{stmt.local} =l copy {stmt.expr.value}\n")
             elif isinstance(stmt.expr, LocalExpr):
                 f.write(f"\t%{stmt.local} =l copy %{stmt.expr.local}\n")
-            elif isinstance(stmt.expr, AllocExpr):
-                f.write(f"\t%{stmt.local} =l call $zre_alloc(l ${stmt.expr.cls_name})\n")
-                locals_to_release.append(stmt.local)
+            else:
+                expr_into_local(f, stmt.expr, unit_ctx, local=stmt.local)
 
         elif isinstance(stmt, CallStmt):
             expr_into_local(f, stmt.call, unit_ctx)
