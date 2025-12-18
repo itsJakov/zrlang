@@ -19,6 +19,10 @@ class IntExpr(_Expression):
     value: int
 
 @dataclass
+class StringExpr(_Expression):
+    value: str
+
+@dataclass
 class LocalExpr(_Expression):
     local: str
 
@@ -48,6 +52,11 @@ class VarStmt(_Statement):
 @dataclass
 class CallStmt(_Statement):
     call: CallExpr
+
+@dataclass
+class AssignStmt(_Statement):
+    assignee: _Expression
+    value: _Expression
 
 # Class
 class _ClassMember(_Ast):

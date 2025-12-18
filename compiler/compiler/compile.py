@@ -3,8 +3,7 @@ from typing import Optional
 
 from compiler.unit_context import UnitContext
 from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, LocalExpr, AllocExpr, CallStmt, \
-    MemberExpr, _Expression, CallExpr
-
+    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt
 
 depth = 0 # TODO
 
@@ -18,6 +17,10 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
 
     if isinstance(expr, IntExpr):
         return f"{expr.value}"
+    if isinstance(expr, StringExpr):
+        temp = get_temp_sym()
+        f.write(f"\t{temp} =l add $strings, {unit_ctx.string_offset(expr.value)}\n")
+        return temp
     elif isinstance(expr, LocalExpr):
         return f"%{expr.local}"
     elif isinstance(expr, MemberExpr):
@@ -38,7 +41,7 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
             f.write(f"\t{temp} =l call %_fn(l {sym}, {args})\n")
             return temp
         else:
-            sys.exit("Not a callable stmt!")
+            sys.exit(f"Not a callable stmt {call.callee}!")
     elif isinstance(expr, AllocExpr):
         temp = get_temp_sym()
         f.write(f"\t{temp} =l call $zre_alloc(l ${expr.cls_name})\n")
@@ -47,8 +50,6 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
         sys.exit(f"Unsupported expr {expr}")
 
 def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
-    locals_to_release: list[str] = []
-
     for stmt in block:
         if isinstance(stmt, VarStmt):
             if stmt.expr is None:
@@ -63,11 +64,21 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
         elif isinstance(stmt, CallStmt):
             expr_into_local(f, stmt.call, unit_ctx)
 
-        else:
-            sys.exit("Statement not supported yet!")
+        elif isinstance(stmt, AssignStmt):
+            if isinstance(stmt.assignee, LocalExpr):
+                pass
+            elif isinstance(stmt.assignee, MemberExpr):
+                instance_sym = expr_into_local(f, stmt.assignee.expr, unit_ctx)
+                field_name = stmt.assignee.member
+                value_sym = expr_into_local(f, stmt.value, unit_ctx)
 
-    for local in locals_to_release:
-        f.write(f"\tcall $zre_release(l %{local})\n")
+                f.write(f"\t%_str =l add $strings, {unit_ctx.string_offset(field_name)}\n")
+                f.write(f"\tcall $zre_field_set(l {instance_sym}, l %_str, l {value_sym})\n")
+            else:
+                sys.exit(f"Not an assignable expression! {stmt.assignee}")
+
+        else:
+            sys.exit(f"Statement not supported yet {stmt}")
 
 def compile_method(f, method: MethodDecl, cls: ClassDecl, unit_ctx: UnitContext):
     f.write(f"function l ${cls.name}_{method.name}(l %self) {{\n")

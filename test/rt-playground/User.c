@@ -17,6 +17,7 @@ static void greet(Instance* self, char* greeting) {
 
 static void testClass(Instance* self) {
     printf("Testing class User (subclass: %s)\n", self->cls->name);
+    printf("Username: %s\n", (char*)zre_field_get(self, "username"));
     printf("\tTesting greet(\"Greetings\")\n");
     ((void (*)(Instance*, char*))zre_method_virtual(self, "greet"))(self, "Greetings");
     printf("All done!\n");
