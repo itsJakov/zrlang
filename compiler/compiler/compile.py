@@ -3,7 +3,7 @@ from typing import Optional
 
 from compiler.unit_context import UnitContext
 from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, LocalExpr, AllocExpr, CallStmt, \
-    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt
+    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt
 
 depth = 0 # TODO
 
@@ -81,6 +81,19 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
                 f.write(f"\tcall $zre_field_set(l {instance_sym}, l %_str, l {value_sym})\n")
             else:
                 sys.exit(f"Not an assignable expression! {stmt.assignee}")
+
+        elif isinstance(stmt, IfStmt):
+            f.write(f"\tjnz {expr_into_local(f, stmt.condition, unit_ctx)}, @if0_true, @if0_false\n")
+
+            f.write(f"@if0_true\n")
+            compile_block(f, stmt.block, unit_ctx)
+            f.write(f"\tjmp @if0_end\n")
+
+            f.write(f"@if0_false\n")
+            if stmt.elseBlock is not None:
+                compile_block(f, stmt.elseBlock, unit_ctx)
+
+            f.write(f"@if0_end\n")
 
         else:
             sys.exit(f"Statement not supported yet {stmt}")

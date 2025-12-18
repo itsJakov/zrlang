@@ -58,6 +58,12 @@ class AssignStmt(_Statement):
     assignee: _Expression
     value: _Expression
 
+@dataclass
+class IfStmt(_Statement):
+    condition: _Expression
+    block: list[_Statement]
+    elseBlock: Optional[list[_Statement]]
+
 # Class
 class _ClassMember(_Ast):
     pass

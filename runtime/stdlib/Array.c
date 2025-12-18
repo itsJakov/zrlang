@@ -39,6 +39,11 @@ static uint64_t getCount(Instance* self) {
     return arrlenu(array);
 }
 
+static uint64_t getIsEmpty(Instance* self) {
+    Instance** array = get_array(self);
+    return arrlenu(array) <= 0;
+}
+
 static void append(Instance* self, Instance* item) {
     Instance** array = get_array(self);
 
@@ -56,6 +61,7 @@ static Method instanceMethods[] = {
     { "deinit", deinit },
     { "get", get },
     { "getCount", getCount },
+    { "getIsEmpty", getIsEmpty },
     { "append", append },
 };
 
@@ -64,5 +70,5 @@ Class Array = {
     .super = &RootObject,
     .fields = { .len = 1, fields },
     .staticMethods = { 0 },
-    .instanceMethods = { .len = 5, instanceMethods }
+    .instanceMethods = { .len = 6, instanceMethods }
 };

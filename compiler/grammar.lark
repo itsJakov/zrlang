@@ -8,10 +8,11 @@ class_field: "var" CNAME ":" CNAME _END
 method_decl: "func" CNAME "(" ")" block
 
 block: "{" statement* "}"
-?statement: var_stmt | call_stmt | assign_stmt
+?statement: var_stmt | call_stmt | assign_stmt | if_stmt
 var_stmt: "var" CNAME ["=" expr] _END
 call_stmt: call_expr _END
 assign_stmt: expr "=" expr _END
+if_stmt: "if" expr block ["else" block]
 
 ?expr: int_expr | string_expr | local_expr | member_expr | call_expr | alloc_expr
 int_expr: SIGNED_NUMBER

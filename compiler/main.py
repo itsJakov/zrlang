@@ -9,9 +9,19 @@ class QBEUser : RootObject {
     var firstName: String
     
     func doSomething() {
-        var newUser = new User
-        string = newUser.toString()
-        string.printToStdout()
+        var user = new User
+        user.username = "test"
+        
+        var array = new Array
+        array.append(user)
+        
+        if array.getIsEmpty() {
+            user.greet("True")
+        } else {
+            user.greet("False")
+        }   
+        
+        user.greet("End")
     }
 }
 """
