@@ -1,4 +1,5 @@
 import sys
+from typing import Optional
 
 from compiler.unit_context import UnitContext
 from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, LocalExpr, AllocExpr, CallStmt, \
@@ -7,8 +8,9 @@ from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, Int
 
 depth = 0 # TODO
 
-def convert_expr_into_symbol(f, expr: _Expression) -> str:
+def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optional[str] = None) -> str:
     def get_temp_sym() -> str: # TODO: No ARC...
+        if local is not None: return f"%{local}"
         global depth
         sym = f"%_temp{depth}"
         depth += 1
@@ -19,19 +21,21 @@ def convert_expr_into_symbol(f, expr: _Expression) -> str:
     elif isinstance(expr, LocalExpr):
         return f"%{expr.local}"
     elif isinstance(expr, MemberExpr):
-        sym = convert_expr_into_symbol(f, expr.expr)
+        sym = expr_into_local(f, expr.expr, unit_ctx)
         temp = get_temp_sym()
-        f.write(f"\t{temp} =l call $zre_get_field(l {sym}, l ${expr.member})\n")
+        f.write(f"\t%_str =l add $strings, {unit_ctx.string_offset(expr.member)}\n")
+        f.write(f"\t{temp} =l call $zre_get_field(l {sym}, l %_str)\n")
         return temp
     elif isinstance(expr, CallExpr):
         call = expr
         if isinstance(call.callee, MemberExpr):
-            sym = convert_expr_into_symbol(f, call.callee.expr)
-            args = ", ".join(f"l {convert_expr_into_symbol(f, symbol)}" for symbol in call.args)
+            sym = expr_into_local(f, call.callee.expr, unit_ctx)
+            args = ", ".join(f"l {expr_into_local(f, symbol, unit_ctx)}" for symbol in call.args)
 
-            f.write(f"\t%_fn =l call $zre_method_virtual(l {sym}, l ${call.callee.member})\n")
+            f.write(f"\t%_str =l add $strings, {unit_ctx.string_offset(call.callee.member)}\n")
+            f.write(f"\t%_fn =l call $zre_method_virtual(l {sym}, l %_str)\n")
             temp = get_temp_sym()
-            f.write(f"\t{temp} =l call %_fn({args})\n")
+            f.write(f"\t{temp} =l call %_fn(l {sym}, {args})\n")
             return temp
         else:
             sys.exit("Not a callable stmt!")
@@ -54,17 +58,7 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
                 locals_to_release.append(stmt.local)
 
         elif isinstance(stmt, CallStmt):
-            call = stmt.call
-            # TODO: Remove duplicate logic from convert_expr_into_symbol
-            if isinstance(call.callee, MemberExpr):
-                method_name = call.callee.member
-                sym = convert_expr_into_symbol(f, call.callee.expr)
-                args = ", ".join(f"l {convert_expr_into_symbol(f, symbol)}" for symbol in call.args)
-
-                f.write(f"\t%_fn =l call $zre_method_virtual(l {sym}, l ${method_name})\n")
-                f.write(f"\tcall %_fn({args})\n")
-            else:
-                sys.exit("Not a callable stmt")
+            expr_into_local(f, stmt.call, unit_ctx)
 
         else:
             sys.exit("Statement not supported yet!")
@@ -79,6 +73,7 @@ def compile_method(f, method: MethodDecl, cls: ClassDecl, unit_ctx: UnitContext)
     f.write("\tret\n")
     f.write("}\n")
 
+# TODO: Clang throws a tantrum if _fields or _instanceMethods are empty
 def compile_cls(f, cls: ClassDecl, unit_ctx: UnitContext):
     f.write(f"# ==== \"{cls.name}\" Class Definition ==== \n")
     fields: list[ClassField] = list(filter(lambda x: isinstance(x, ClassField), cls.members))
