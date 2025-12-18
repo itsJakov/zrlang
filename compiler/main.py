@@ -16,12 +16,12 @@ class QBEUser : RootObject {
         array.append(user)
         
         if array.getIsEmpty() {
-            user.greet("True")
+            print("Array is empty")
         } else {
-            user.greet("False")
+            print("Array is not empty")
         }   
         
-        user.greet("End")
+        print("End")
     }
 }
 """

@@ -17,6 +17,7 @@ add_library(zrlang STATIC
         runtime/lib/stb.c
         runtime/lib/xxhash.c
         runtime/runtime.c
+        runtime/stdlib/builtins.c
         runtime/stdlib/Object.c
         runtime/stdlib/String.c
         runtime/stdlib/Array.c

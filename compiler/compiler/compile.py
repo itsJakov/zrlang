@@ -31,7 +31,12 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
         return temp
     elif isinstance(expr, CallExpr):
         call = expr
-        if isinstance(call.callee, MemberExpr):
+        if isinstance(call.callee, LocalExpr):
+            args = ", ".join(f"l {expr_into_local(f, symbol, unit_ctx)}" for symbol in call.args)
+            temp = get_temp_sym()
+            f.write(f"\t{temp} =l call $__zre_{call.callee.local}({args})\n")
+            return temp
+        elif isinstance(call.callee, MemberExpr):
             sym = expr_into_local(f, call.callee.expr, unit_ctx)
             args = ", ".join(f"l {expr_into_local(f, symbol, unit_ctx)}" for symbol in call.args)
 
