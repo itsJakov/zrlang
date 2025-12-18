@@ -9,11 +9,9 @@ class QBEUser : RootObject {
     var firstName: String
     
     func doSomething() {
-        var newUser = new SuperUser
-        newUser.username = "jakovgz"
-        newUser.title = "Dr. Sc."
-        newUser.greet("Heeeellooooo")
-        newUser.toString().printToStdout()
+        var newUser = new User
+        string = newUser.toString()
+        string.printToStdout()
     }
 }
 """

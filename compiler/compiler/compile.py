@@ -66,7 +66,12 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
 
         elif isinstance(stmt, AssignStmt):
             if isinstance(stmt.assignee, LocalExpr):
-                pass
+                if isinstance(stmt.value, IntExpr):
+                    f.write(f"\t%{stmt.assignee.local} =l copy {stmt.value.value}\n")
+                elif isinstance(stmt.value, LocalExpr):
+                    f.write(f"\t%{stmt.assignee.local} =l copy %{stmt.value.local}\n")
+                else:
+                    expr_into_local(f, stmt.value, unit_ctx, local=stmt.assignee.local)
             elif isinstance(stmt.assignee, MemberExpr):
                 instance_sym = expr_into_local(f, stmt.assignee.expr, unit_ctx)
                 field_name = stmt.assignee.member
