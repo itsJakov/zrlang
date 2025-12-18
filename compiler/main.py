@@ -9,11 +9,10 @@ class QBEUser : RootObject {
     var firstName: String
     
     func doSomething() {
-        var name = new User;
-        
-        self.user().firstName.prefix.call()
+        var name = new User
+        var someInt = 0
+        self.greet(2, self.firstName()).string.prefix(someInt)
     }
-    
 }
 """
 

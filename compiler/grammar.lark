@@ -17,8 +17,10 @@ int_expr: SIGNED_NUMBER
 string_expr: ESCAPED_STRING
 local_expr: CNAME
 member_expr: expr "." CNAME
-call_expr: expr "(" ")"
+call_expr: expr "(" call_args ")"
 alloc_expr: "new" CNAME
+
+call_args: [expr ("," expr)*]
 
 _END: WS_INLINE? (NEWLINE | ";")
 

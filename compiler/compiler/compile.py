@@ -8,9 +8,7 @@ from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, Int
 depth = 0 # TODO
 
 def convert_expr_into_symbol(f, expr: _Expression) -> str:
-    print(f"convert_expr_into_symbol {expr}")
-
-    def get_temp_sym() -> str:
+    def get_temp_sym() -> str: # TODO: No ARC...
         global depth
         sym = f"%_temp{depth}"
         depth += 1
@@ -29,9 +27,11 @@ def convert_expr_into_symbol(f, expr: _Expression) -> str:
         call = expr
         if isinstance(call.callee, MemberExpr):
             sym = convert_expr_into_symbol(f, call.callee.expr)
+            args = ", ".join(f"l {convert_expr_into_symbol(f, symbol)}" for symbol in call.args)
+
             f.write(f"\t%_fn =l call $zre_method_virtual(l {sym}, l ${call.callee.member})\n")
             temp = get_temp_sym()
-            f.write(f"\t{temp} =l call %_fn()\n")
+            f.write(f"\t{temp} =l call %_fn({args})\n")
             return temp
         else:
             sys.exit("Not a callable stmt!")
@@ -55,12 +55,14 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
 
         elif isinstance(stmt, CallStmt):
             call = stmt.call
+            # TODO: Remove duplicate logic from convert_expr_into_symbol
             if isinstance(call.callee, MemberExpr):
                 method_name = call.callee.member
                 sym = convert_expr_into_symbol(f, call.callee.expr)
+                args = ", ".join(f"l {convert_expr_into_symbol(f, symbol)}" for symbol in call.args)
 
                 f.write(f"\t%_fn =l call $zre_method_virtual(l {sym}, l ${method_name})\n")
-                f.write(f"\tcall %_fn()\n")
+                f.write(f"\tcall %_fn({args})\n")
             else:
                 sys.exit("Not a callable stmt")
 

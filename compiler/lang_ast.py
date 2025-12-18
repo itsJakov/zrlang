@@ -30,7 +30,7 @@ class MemberExpr(_Expression):
 @dataclass
 class CallExpr(_Expression):
     callee: _Expression
-    args: Optional[str] = None
+    args: list[_Expression]
 
 @dataclass
 class AllocExpr(_Expression):
@@ -72,6 +72,10 @@ class MethodDecl(_Ast):
 
 class ToAst(Transformer):
     def block(self, l: list[_Statement]) -> list[_Statement]:
+        return l
+
+    def call_args(self, l: list[_Expression]) -> list[_Expression]:
+        if l[0] is None: return [] # Lark behaviour I don't feel like thinking about
         return l
 
     def class_body(self, l: list[_ClassMember]) -> list[_ClassMember]:
