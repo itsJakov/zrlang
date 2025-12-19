@@ -17,11 +17,20 @@ class QBEUser : RootObject {
         
         if array.getIsEmpty() {
             print("Array is empty")
+            
+            if 1 {
+                print("will happen sometimes hihi")
+            } 
         } else {
             print("Array is not empty")
-        }   
-        
-        print("End")
+            array.get(0).toString().printToStdout()
+            
+            if 0 {
+                print("will never happen")
+            }  
+        }
+            
+        print("Method End")
     }
 }
 """

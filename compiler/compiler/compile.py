@@ -6,6 +6,7 @@ from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, Int
     MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt
 
 depth = 0 # TODO
+if_index = 0 # TODO
 
 def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optional[str] = None) -> str:
     def get_temp_sym() -> str: # TODO: No ARC...
@@ -88,17 +89,29 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
                 sys.exit(f"Not an assignable expression! {stmt.assignee}")
 
         elif isinstance(stmt, IfStmt):
-            f.write(f"\tjnz {expr_into_local(f, stmt.condition, unit_ctx)}, @if0_true, @if0_false\n")
+            global if_index
+            idx = if_index
+            if_index += 1
 
-            f.write(f"@if0_true\n")
+            end_label = f"@if{idx}_end"
+            true_label = f"@if{idx}_true"
+            if stmt.elseBlock is None:
+                false_label = end_label
+            else:
+                false_label = f"@if{idx}_false"
+
+            f.write(f"\tjnz {expr_into_local(f, stmt.condition, unit_ctx)}, {true_label}, {false_label}\n")
+
+            f.write(f"{true_label}\n")
             compile_block(f, stmt.block, unit_ctx)
-            f.write(f"\tjmp @if0_end\n")
-
-            f.write(f"@if0_false\n")
             if stmt.elseBlock is not None:
+                f.write(f"\tjmp {end_label}\n")
+
+            if stmt.elseBlock is not None:
+                f.write(f"{false_label}\n")
                 compile_block(f, stmt.elseBlock, unit_ctx)
 
-            f.write(f"@if0_end\n")
+            f.write(f"{end_label}\n")
 
         else:
             sys.exit(f"Statement not supported yet {stmt}")
