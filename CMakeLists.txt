@@ -12,6 +12,21 @@ add_custom_target(qbe ALL
         COMMENT "Building QBE"
 )
 
+# Tree-sitter Runtime
+FetchContent_Declare(
+        tree-sitter
+        GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter.git
+        GIT_TAG v0.26.3
+)
+FetchContent_MakeAvailable(tree-sitter)
+
+# Compiler
+add_executable(zrc
+        c-compiler/tree-sitter-zrlang/src/parser.c
+        c-compiler/main.c)
+
+target_link_libraries(zrc PRIVATE tree-sitter)
+
 # runtime
 add_library(zrlang STATIC
         runtime/lib/stb.c

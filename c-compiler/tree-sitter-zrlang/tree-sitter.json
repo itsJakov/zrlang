@@ -1,0 +1,41 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "zrlang",
+      "camelcase": "Zrlang",
+      "title": "Zrlang",
+      "scope": "source.zrlang",
+      "file-types": [
+        "zrlang"
+      ],
+      "injection-regex": "^zrlang$",
+      "class-name": "TreeSitterZrlang"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Zrlang grammar for tree-sitter",
+    "authors": [
+      {
+        "name": "itsJakov",
+        "url": ""
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/tree-sitter/tree-sitter-zrlang",
+      "funding": ""
+    }
+  },
+  "bindings": {
+    "c": true,
+    "go": false,
+    "java": false,
+    "node": false,
+    "python": false,
+    "rust": false,
+    "swift": false,
+    "zig": false
+  }
+}
