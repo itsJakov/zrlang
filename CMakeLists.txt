@@ -23,7 +23,8 @@ FetchContent_MakeAvailable(tree-sitter)
 # Compiler
 add_executable(zrc
         c-compiler/tree-sitter-zrlang/src/parser.c
-        c-compiler/main.c)
+        c-compiler/main.c
+        c-compiler/ast.c)
 
 target_link_libraries(zrc PRIVATE tree-sitter)
 
