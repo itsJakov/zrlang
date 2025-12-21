@@ -9,15 +9,11 @@
     "named": true,
     "fields": {
       "members": {
-        "multiple": true,
-        "required": false,
+        "multiple": false,
+        "required": true,
         "types": [
           {
-            "type": "class_field_decl",
-            "named": true
-          },
-          {
-            "type": "method_decl",
+            "type": "class_members",
             "named": true
           }
         ]
@@ -33,13 +29,9 @@
         ]
       },
       "super": {
-        "multiple": true,
+        "multiple": false,
         "required": false,
         "types": [
-          {
-            "type": ":",
-            "named": false
-          },
           {
             "type": "identifier",
             "named": true
@@ -72,6 +64,25 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "class_members",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "class_field_decl",
+          "named": true
+        },
+        {
+          "type": "method_decl",
+          "named": true
+        }
+      ]
     }
   },
   {

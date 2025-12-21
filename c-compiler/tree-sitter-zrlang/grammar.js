@@ -20,22 +20,24 @@ export default grammar({
         field("name", $.identifier),
         "(",
         ")",
-        field("returnType", optional(seq("->", $.identifier))),
+        optional(seq("->", field("returnType", $.identifier))),
         field("block", $.block)
     ),
 
     class_decl: $ => seq(
         "class",
         field("name", $.identifier),
-        field("super", optional(seq(":", $.identifier))),
-        "{",
-        field("members", repeat($._class_member)),
-        "}"
+        optional(seq(":", field("super", $.identifier))),
+        field("members", $.class_members),
     ),
 
-    _class_member: $ => choice(
-        $.class_field_decl,
-        $.method_decl
+    class_members: $ => seq(
+        "{",
+        repeat(choice(
+            $.class_field_decl,
+            $.method_decl
+        )),
+        "}"
     ),
 
     class_field_decl: $ => seq(
