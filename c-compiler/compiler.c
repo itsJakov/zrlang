@@ -2,6 +2,47 @@
 
 #include "context.h"
 
+#define abortf(format, ...) fprintf(stderr, format, ##__VA_ARGS__); abort()
+
+static void compileBlock(FILE* f, Statement* block) {
+    for (Statement* stmt = block; stmt->type != 0; stmt++) {
+        switch (stmt->type) {
+            case STATEMENT_VAR: {
+                VarStmt* var = &stmt->as.var;
+                Expression* expr = &var->value;
+                if (expr->type == 0) {
+                    fprintf(f, "\t%%%s =l copy 0\n", stmt->as.var.name);
+                    break;
+                }
+
+                switch (expr->type) {
+                    case EXPRESSION_NUMBER: {
+                        fprintf(f, "\t%%%s =l copy %lld\n", stmt->as.var.name, expr->as.number);
+                        break;
+                    }
+                    case EXPRESSION_STRING: {
+                        fprintf(f, "\t%%%s =l add $strings, %lu\n", stmt->as.var.name,
+                                offsetForString(expr->as.string));
+                        break;
+                    }
+                    default: break; // resolve expr as a temporary
+                }
+
+                break;
+            }
+            default: abortf("Unknown statement type!\n");
+        }
+    }
+}
+
+static void compileInstanceMethod(FILE* f, ClassDeclaration* cls, MethodDecl* method) {
+    fprintf(f, "function l $%s_%s(l %%self) {\n", cls->name, method->name);
+    fprintf(f, "@start\n");
+    compileBlock(f, method->block);
+    fprintf(f, "\tret\n");
+    fprintf(f, "}\n\n");
+}
+
 static void compileClass(FILE* f, ClassDeclaration* cls) {
     fprintf(f, "# ==== \"%s\" Class Definition ====\n", cls->name);
 
@@ -34,7 +75,12 @@ static void compileClass(FILE* f, ClassDeclaration* cls) {
     fprintf(f, "\tl %lu, l $%s_fields,\n", fieldCount, cls->name);
     fprintf(f, "\tl 0, l 0,\n");
     fprintf(f, "\tl %lu, l $%s_instanceMethods,\n", instanceMethodCount, cls->name);
-    fprintf(f, "}\n");
+    fprintf(f, "}\n\n");
+
+    for (ClassMember* member = cls->members; member->type != 0; member++) {
+        if (member->type != CLASS_MEMBER_METHOD) continue;
+        compileInstanceMethod(f, cls, &member->as.method);
+    }
 
     fprintf(f, "\n");
 }

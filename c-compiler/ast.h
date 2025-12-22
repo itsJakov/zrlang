@@ -5,8 +5,33 @@
 #define Optional(T) T
 
 typedef struct {
+    enum {
+        EXPRESSION_NUMBER = 1,
+        EXPRESSION_STRING
+    } type;
+    union {
+        int64_t number;
+        const char* string;
+    } as;
+} Expression;
+
+typedef struct {
     const char* name;
-    Optional(const char*) returnType;
+    Optional(Expression) value;
+} VarStmt;
+
+typedef struct {
+    enum {
+        STATEMENT_VAR = 1,
+    } type;
+    union {
+        VarStmt var;
+    } as;
+} Statement;
+
+typedef struct {
+    const char* name;
+    Statement* block;
 } MethodDecl;
 
 typedef struct {

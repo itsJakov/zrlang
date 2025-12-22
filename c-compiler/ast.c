@@ -9,7 +9,7 @@
 #define static_strlen(s) (sizeof(s) / sizeof(s[0]) - 1)
 #define ts_node_child_by_field(node, name) ts_node_child_by_field_name(node, name, static_strlen(name))
 
-static const char* ts_node_content(TSNode node, const char* src, Arena* arena) {
+static char* ts_node_content(TSNode node, const char* src, Arena* arena) {
     if (!ts_node_valid(node)) return NULL;
     size_t start = ts_node_start_byte(node);
     size_t end = ts_node_end_byte(node);
@@ -22,6 +22,49 @@ static const char* ts_node_content(TSNode node, const char* src, Arena* arena) {
 }
 
 const TSLanguage* tree_sitter_zrlang(void);
+
+// TODO: No TSNode error checking!
+static Statement* buildBlock(TSNode node, const char* src, Arena* arena) {
+    size_t count = ts_node_named_child_count(node);
+    Statement* stmts = arena_alloc(arena, sizeof(Statement) * (count + 1));
+    for (size_t i = 0; i < count; i++) {
+        TSNode stmtNode = ts_node_named_child(node, i);
+        if (strcmp(ts_node_type(stmtNode), "var_stmt") == 0) {
+            TSNode nameNode = ts_node_child_by_field(stmtNode, "name");
+            TSNode valueNode = ts_node_child_by_field(stmtNode, "value");
+
+            Expression value;
+            if (ts_node_is_null(valueNode)) {
+                value = (Expression){0};
+            } else if (strcmp(ts_node_type(valueNode), "number_expr") == 0) {
+                value.type = EXPRESSION_NUMBER;
+                Arena temp = {0};
+                char* str = ts_node_content(valueNode, src, &temp);
+                value.as.number = strtol(str, NULL, 0); // TODO: strtol could fail
+                arena_free(&temp);
+            } else if (strcmp(ts_node_type(valueNode), "string_expr") == 0) {
+                value.type = EXPRESSION_STRING;
+                char* str = ts_node_content(valueNode, src, arena);
+                str += 1; // Move from the first "
+                str[strlen(str) - 1] = '\0'; // Overwrite last " with a \0
+                value.as.string = str;
+            } else {
+                abort();
+            }
+
+            stmts[i].type = STATEMENT_VAR;
+            stmts[i].as.var = (VarStmt){
+                .name = ts_node_content(nameNode, src, arena),
+                .value = value
+            };
+        } else {
+            abort();
+        }
+    }
+    stmts[count] = (Statement){0};
+
+    return stmts;
+}
 
 ClassDeclaration* buildAST(Arena* arena, const char* src, size_t srcLen) {
     TSParser *parser = ts_parser_new();
@@ -64,12 +107,13 @@ ClassDeclaration* buildAST(Arena* arena, const char* src, size_t srcLen) {
                 } else if (strcmp(ts_node_type(memberNode), "method_decl") == 0) {
                     TSNode nameNode = ts_node_child_by_field(memberNode, "name");
                     REQUIRE_NODE(nameNode);
-                    TSNode returnTypeNode = ts_node_child_by_field(memberNode, "returnType");
+                    TSNode blockNode = ts_node_child_by_field(memberNode, "block");
+                    REQUIRE_NODE(blockNode);
 
                     members[j].type = CLASS_MEMBER_METHOD;
                     members[j].as.method = (MethodDecl){
                             .name = ts_node_content(nameNode, src, arena),
-                            .returnType = ts_node_content(returnTypeNode, src, arena)
+                            .block = buildBlock(blockNode, src, arena)
                     };
                 } else {
                     return false;

@@ -2,7 +2,17 @@
   {
     "type": "block",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "var_stmt",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "class_decl",
@@ -138,6 +148,59 @@
     }
   },
   {
+    "type": "string_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "escape_sequence",
+          "named": true
+        },
+        {
+          "type": "string_content",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "var_stmt",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "number_expr",
+            "named": true
+          },
+          {
+            "type": "string_expr",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "\"",
+    "named": false
+  },
+  {
     "type": "(",
     "named": false
   },
@@ -154,8 +217,16 @@
     "named": false
   },
   {
+    "type": "=",
+    "named": false
+  },
+  {
     "type": "class",
     "named": false
+  },
+  {
+    "type": "escape_sequence",
+    "named": true
   },
   {
     "type": "func",
@@ -163,6 +234,14 @@
   },
   {
     "type": "identifier",
+    "named": true
+  },
+  {
+    "type": "number_expr",
+    "named": true
+  },
+  {
+    "type": "string_content",
     "named": true
   },
   {

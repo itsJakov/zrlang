@@ -52,7 +52,7 @@ int main() {
                 }
                 case CLASS_MEMBER_METHOD: {
                     MethodDecl* method = &member->as.method;
-                    printf("Method: name = %s, returnType = %s\n", method->name, method->returnType);
+                    printf("Method: name = %s\n", method->name);
                     break;
                 }
             }
