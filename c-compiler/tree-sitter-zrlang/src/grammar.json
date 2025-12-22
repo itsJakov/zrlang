@@ -19,6 +19,27 @@
         {
           "type": "SYMBOL",
           "name": "string_expr"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "new_expr"
+        }
+      ]
+    },
+    "new_expr": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "new"
+        },
+        {
+          "type": "FIELD",
+          "name": "className",
+          "content": {
+            "type": "SYMBOL",
+            "name": "identifier"
+          }
         }
       ]
     },

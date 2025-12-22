@@ -48,6 +48,12 @@ static Statement* buildBlock(TSNode node, const char* src, Arena* arena) {
                 str += 1; // Move from the first "
                 str[strlen(str) - 1] = '\0'; // Overwrite last " with a \0
                 value.as.string = str;
+            } else if (strcmp(ts_node_type(valueNode), "new_expr") == 0) {
+                value.type = EXPRESSION_NEW;
+                TSNode classNameNode = ts_node_child_by_field(valueNode, "className");
+                value.as.newExpr = (NewExpr){
+                    .className = ts_node_content(classNameNode, src, arena)
+                };
             } else {
                 abort();
             }

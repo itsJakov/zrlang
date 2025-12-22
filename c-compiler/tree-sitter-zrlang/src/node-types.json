@@ -132,6 +132,22 @@
     }
   },
   {
+    "type": "new_expr",
+    "named": true,
+    "fields": {
+      "className": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "source_file",
     "named": true,
     "root": true,
@@ -185,6 +201,10 @@
         "required": false,
         "types": [
           {
+            "type": "new_expr",
+            "named": true
+          },
+          {
             "type": "number_expr",
             "named": true
           },
@@ -235,6 +255,10 @@
   {
     "type": "identifier",
     "named": true
+  },
+  {
+    "type": "new",
+    "named": false
   },
   {
     "type": "number_expr",

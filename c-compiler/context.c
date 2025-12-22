@@ -28,3 +28,5 @@ const char* stringSymbol(const char* str) {
     snprintf(buffer, 1024, "$strings+%lu", offset);
     return buffer;
 }
+
+FunctionContext FunctionContext_current = {0};

@@ -5,13 +5,19 @@
 #define Optional(T) T
 
 typedef struct {
+    const char* className;
+} NewExpr;
+
+typedef struct {
     enum {
         EXPRESSION_NUMBER = 1,
-        EXPRESSION_STRING
+        EXPRESSION_STRING,
+        EXPRESSION_NEW
     } type;
     union {
         int64_t number;
         const char* string;
+        NewExpr newExpr;
     } as;
 } Expression;
 

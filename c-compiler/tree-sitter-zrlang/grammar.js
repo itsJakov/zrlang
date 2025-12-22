@@ -15,7 +15,13 @@ export default grammar({
 
     _expr: $ => choice(
         $.number_expr,
-        $.string_expr
+        $.string_expr,
+        $.new_expr
+    ),
+
+    new_expr: $ => seq(
+        "new",
+        field("className", $.identifier)
     ),
 
     var_stmt: $ => seq(

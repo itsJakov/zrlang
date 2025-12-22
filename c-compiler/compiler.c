@@ -2,7 +2,35 @@
 
 #include "context.h"
 
-#define abortf(format, ...) fprintf(stderr, format, ##__VA_ARGS__); abort()
+#define abort_bug(format, ...) fprintf(stderr, "[Bug] " format, ##__VA_ARGS__); abort()
+
+static char* getLocal(FILE* f, Arena* arena, Optional(const char*) name) {
+    if (name != NULL) return arena_sprintf(arena, "%%%s", name);
+
+    FunctionContext* ctx = &FunctionContext_current;
+    char* local = arena_sprintf(arena, "%%_local%lu", ctx->temporaryIndex);
+    ctx->temporaryIndex++;
+    return local;
+}
+
+static char* exprIntoLocal(FILE* f, Expression* expr, const char* local, Arena* arena) {
+    switch (expr->type) {
+        case EXPRESSION_NUMBER: {
+            return arena_sprintf(arena, "%lld", expr->as.number);
+        }
+        case EXPRESSION_STRING: {
+            char* temp = getLocal(f, arena, local);
+            fprintf(f, "\t%s =l add $strings, %lu\n", temp, offsetForString(expr->as.string));
+            return temp;
+        }
+        case EXPRESSION_NEW: {
+            char* temp = getLocal(f, arena, local);
+            fprintf(f, "\t%s =l call $zre_alloc(l $%s)\n", temp, expr->as.newExpr.className);
+            return temp;
+        }
+        default: abort_bug("Unknown expr type");
+    }
+}
 
 static void compileBlock(FILE* f, Statement* block) {
     for (Statement* stmt = block; stmt->type != 0; stmt++) {
@@ -25,12 +53,16 @@ static void compileBlock(FILE* f, Statement* block) {
                                 offsetForString(expr->as.string));
                         break;
                     }
-                    default: break; // resolve expr as a temporary
+                    default: {
+                        Arena scratch = {0};
+                        exprIntoLocal(f, expr, var->name, &scratch); // resolve expr as a temporary
+                        arena_free(&scratch);
+                    }
                 }
 
                 break;
             }
-            default: abortf("Unknown statement type!\n");
+            default: abort_bug("Unknown statement type!\n");
         }
     }
 }
