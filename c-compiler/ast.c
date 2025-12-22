@@ -9,9 +9,17 @@
 #define static_strlen(s) (sizeof(s) / sizeof(s[0]) - 1)
 #define ts_node_child_by_field(node, name) ts_node_child_by_field_name(node, name, static_strlen(name))
 
-#define ts_node_slice(node) ((StringSlice){ ts_node_start_byte(node), ts_node_end_byte(node) })
+static const char* ts_node_content(TSNode node, const char* src, Arena* arena) {
+    if (!ts_node_valid(node)) return NULL;
+    size_t start = ts_node_start_byte(node);
+    size_t end = ts_node_end_byte(node);
 
-#define ts_node_optional_slice(node) ts_node_valid(node) ? ts_node_slice(node) : SLICE_NULL
+    size_t len = end - start;
+    char* buffer = arena_alloc(arena, len+1);
+    memcpy(buffer, src + start, len);
+    buffer[len+1] = '\0';
+    return buffer;
+}
 
 const TSLanguage* tree_sitter_zrlang(void);
 
@@ -50,8 +58,8 @@ ClassDeclaration* buildAST(Arena* arena, const char* src, size_t srcLen) {
 
                     members[j].type = CLASS_MEMBER_FIELD;
                     members[j].as.field = (ClassFieldDecl){
-                            .name = ts_node_slice(nameNode),
-                            .type = ts_node_slice(typeNode)
+                            .name = ts_node_content(nameNode, src, arena),
+                            .type = ts_node_content(typeNode, src, arena)
                     };
                 } else if (strcmp(ts_node_type(memberNode), "method_decl") == 0) {
                     TSNode nameNode = ts_node_child_by_field(memberNode, "name");
@@ -60,8 +68,8 @@ ClassDeclaration* buildAST(Arena* arena, const char* src, size_t srcLen) {
 
                     members[j].type = CLASS_MEMBER_METHOD;
                     members[j].as.method = (MethodDecl){
-                            .name = ts_node_slice(nameNode),
-                            .returnType = ts_node_optional_slice(returnTypeNode)
+                            .name = ts_node_content(nameNode, src, arena),
+                            .returnType = ts_node_content(returnTypeNode, src, arena)
                     };
                 } else {
                     return false;
@@ -75,8 +83,8 @@ ClassDeclaration* buildAST(Arena* arena, const char* src, size_t srcLen) {
         }
 
         classDeclarations[i] = (ClassDeclaration){
-                .name = ts_node_slice(className),
-                .super = ts_node_optional_slice(superNode),
+                .name = ts_node_content(className, src, arena),
+                .super = ts_node_content(superNode, src, arena),
                 .members = members
         };
     }

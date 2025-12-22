@@ -1,18 +1,17 @@
 #pragma once
 
-#include "string-slice.h"
 #include "arena.h"
 
 #define Optional(T) T
 
 typedef struct {
-    StringSlice name;
-    Optional(StringSlice) returnType;
+    const char* name;
+    Optional(const char*) returnType;
 } MethodDecl;
 
 typedef struct {
-    StringSlice name;
-    StringSlice type;
+    const char* name;
+    const char* type;
 } ClassFieldDecl;
 
 typedef struct {
@@ -27,8 +26,8 @@ typedef struct {
 } ClassMember;
 
 typedef struct {
-    StringSlice name;
-    Optional(StringSlice) super;
+    const char* name;
+    Optional(const char*) super;
 
     ClassMember* members;
 } ClassDeclaration;
