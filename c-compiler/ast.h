@@ -4,22 +4,33 @@
 
 #define Optional(T) T
 
+typedef struct Expression Expression;
+
+typedef struct {
+    Expression* expr; // uh oh
+    const char* memberName;
+} MemberExpr;
+
 typedef struct {
     const char* className;
 } NewExpr;
 
-typedef struct {
+struct Expression {
     enum {
         EXPRESSION_NUMBER = 1,
         EXPRESSION_STRING,
+        EXPRESSION_IDENTIFIER,
+        EXPRESSION_MEMBER,
         EXPRESSION_NEW
     } type;
     union {
         int64_t number;
         const char* string;
+        const char* identifier;
+        MemberExpr member;
         NewExpr newExpr;
     } as;
-} Expression;
+};
 
 typedef struct {
     const char* name;

@@ -23,6 +23,51 @@ static char* ts_node_content(TSNode node, const char* src, Arena* arena) {
 
 const TSLanguage* tree_sitter_zrlang(void);
 
+static Expression buildExpr(TSNode node, const char* src, Arena* arena) {
+    Expression out;
+
+    if (ts_node_is_null(node)) {
+        out = (Expression){0};
+    } else if (strcmp(ts_node_type(node), "number_expr") == 0) {
+        out.type = EXPRESSION_NUMBER;
+        Arena temp = {0};
+        char* str = ts_node_content(node, src, &temp);
+        out.as.number = strtol(str, NULL, 0); // TODO: strtol could fail
+        arena_free(&temp);
+    } else if (strcmp(ts_node_type(node), "string_expr") == 0) {
+        out.type = EXPRESSION_STRING;
+        char *str = ts_node_content(node, src, arena);
+        str += 1; // Move from the first "
+        str[strlen(str) - 1] = '\0'; // Overwrite last " with a \0
+        out.as.string = str;
+    } else if (strcmp(ts_node_type(node), "identifier") == 0) {
+        out.type = EXPRESSION_IDENTIFIER;
+        out.as.identifier = ts_node_content(node, src, arena);
+    } else if (strcmp(ts_node_type(node), "member_expr") == 0) {
+        out.type = EXPRESSION_MEMBER;
+        TSNode exprNode = ts_node_child_by_field(node, "expr");
+        TSNode memberNode = ts_node_child_by_field(node, "memberName");
+
+        Expression* expr = arena_alloc(arena, sizeof(Expression));
+        *expr = buildExpr(exprNode, src, arena);
+
+        out.as.member = (MemberExpr){
+                .expr = expr,
+                .memberName = ts_node_content(memberNode, src, arena)
+        };
+    } else if (strcmp(ts_node_type(node), "new_expr") == 0) {
+        out.type = EXPRESSION_NEW;
+        TSNode classNameNode = ts_node_child_by_field(node, "className");
+        out.as.newExpr = (NewExpr){
+                .className = ts_node_content(classNameNode, src, arena)
+        };
+    } else {
+        abort();
+    }
+
+    return out;
+}
+
 // TODO: No TSNode error checking!
 static Statement* buildBlock(TSNode node, const char* src, Arena* arena) {
     size_t count = ts_node_named_child_count(node);
@@ -33,35 +78,10 @@ static Statement* buildBlock(TSNode node, const char* src, Arena* arena) {
             TSNode nameNode = ts_node_child_by_field(stmtNode, "name");
             TSNode valueNode = ts_node_child_by_field(stmtNode, "value");
 
-            Expression value;
-            if (ts_node_is_null(valueNode)) {
-                value = (Expression){0};
-            } else if (strcmp(ts_node_type(valueNode), "number_expr") == 0) {
-                value.type = EXPRESSION_NUMBER;
-                Arena temp = {0};
-                char* str = ts_node_content(valueNode, src, &temp);
-                value.as.number = strtol(str, NULL, 0); // TODO: strtol could fail
-                arena_free(&temp);
-            } else if (strcmp(ts_node_type(valueNode), "string_expr") == 0) {
-                value.type = EXPRESSION_STRING;
-                char* str = ts_node_content(valueNode, src, arena);
-                str += 1; // Move from the first "
-                str[strlen(str) - 1] = '\0'; // Overwrite last " with a \0
-                value.as.string = str;
-            } else if (strcmp(ts_node_type(valueNode), "new_expr") == 0) {
-                value.type = EXPRESSION_NEW;
-                TSNode classNameNode = ts_node_child_by_field(valueNode, "className");
-                value.as.newExpr = (NewExpr){
-                    .className = ts_node_content(classNameNode, src, arena)
-                };
-            } else {
-                abort();
-            }
-
             stmts[i].type = STATEMENT_VAR;
             stmts[i].as.var = (VarStmt){
                 .name = ts_node_content(nameNode, src, arena),
-                .value = value
+                .value = buildExpr(valueNode, src, arena)
             };
         } else {
             abort();

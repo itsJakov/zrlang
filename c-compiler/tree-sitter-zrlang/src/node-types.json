@@ -15,6 +15,42 @@
     }
   },
   {
+    "type": "call_expr",
+    "named": true,
+    "fields": {
+      "callee": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "call_expr",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "member_expr",
+            "named": true
+          },
+          {
+            "type": "new_expr",
+            "named": true
+          },
+          {
+            "type": "number_expr",
+            "named": true
+          },
+          {
+            "type": "string_expr",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "class_decl",
     "named": true,
     "fields": {
@@ -93,6 +129,52 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "member_expr",
+    "named": true,
+    "fields": {
+      "expr": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "call_expr",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "member_expr",
+            "named": true
+          },
+          {
+            "type": "new_expr",
+            "named": true
+          },
+          {
+            "type": "number_expr",
+            "named": true
+          },
+          {
+            "type": "string_expr",
+            "named": true
+          }
+        ]
+      },
+      "member": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -201,6 +283,18 @@
         "required": false,
         "types": [
           {
+            "type": "call_expr",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "member_expr",
+            "named": true
+          },
+          {
             "type": "new_expr",
             "named": true
           },
@@ -230,6 +324,10 @@
   },
   {
     "type": "->",
+    "named": false
+  },
+  {
+    "type": ".",
     "named": false
   },
   {

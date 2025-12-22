@@ -2,7 +2,7 @@
 
 #include "context.h"
 
-#define abort_bug(format, ...) fprintf(stderr, "[Bug] " format, ##__VA_ARGS__); abort()
+#define abort_bug(format, ...) fprintf(stderr, "[Bug] " format "\n", ##__VA_ARGS__); abort()
 
 static char* getLocal(FILE* f, Arena* arena, Optional(const char*) name) {
     if (name != NULL) return arena_sprintf(arena, "%%%s", name);
@@ -13,14 +13,26 @@ static char* getLocal(FILE* f, Arena* arena, Optional(const char*) name) {
     return local;
 }
 
-static char* exprIntoLocal(FILE* f, Expression* expr, const char* local, Arena* arena) {
+static char* exprIntoLocal(FILE* f, Expression* expr, Optional(const char*) local, Arena* arena) {
     switch (expr->type) {
         case EXPRESSION_NUMBER: {
             return arena_sprintf(arena, "%lld", expr->as.number);
         }
+        case EXPRESSION_IDENTIFIER: {
+            return arena_sprintf(arena, "%%%s", expr->as.identifier);
+        }
         case EXPRESSION_STRING: {
             char* temp = getLocal(f, arena, local);
             fprintf(f, "\t%s =l add $strings, %lu\n", temp, offsetForString(expr->as.string));
+            return temp;
+        }
+        case EXPRESSION_MEMBER: {
+            MemberExpr* member = &expr->as.member;
+            char* sym = exprIntoLocal(f, member->expr, NULL, arena);
+            char* temp = getLocal(f, arena, local);
+
+            fprintf(f, "\t%%_str =l add $strings, %lu\n", offsetForString(member->memberName));
+            fprintf(f, "\t%s =l call $zre_get_field(l %s, l %%_str)\n", temp, sym);
             return temp;
         }
         case EXPRESSION_NEW: {

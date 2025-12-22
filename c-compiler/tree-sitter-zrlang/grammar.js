@@ -16,7 +16,22 @@ export default grammar({
     _expr: $ => choice(
         $.number_expr,
         $.string_expr,
+        $.identifier,
+        $.member_expr,
+        $.call_expr,
         $.new_expr
+    ),
+
+    member_expr: $ => seq(
+        field("expr", $._expr),
+        ".",
+        field("member", $.identifier)
+    ),
+
+    call_expr: $ => seq(
+        field("callee", $._expr),
+        "(",
+        ")"
     ),
 
     new_expr: $ => seq(
