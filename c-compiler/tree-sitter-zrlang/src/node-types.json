@@ -8,6 +8,10 @@
       "required": false,
       "types": [
         {
+          "type": "call_stmt",
+          "named": true
+        },
+        {
           "type": "var_stmt",
           "named": true
         }
@@ -48,6 +52,21 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "call_stmt",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "call_expr",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -165,7 +184,7 @@
           }
         ]
       },
-      "member": {
+      "memberName": {
         "multiple": false,
         "required": true,
         "types": [

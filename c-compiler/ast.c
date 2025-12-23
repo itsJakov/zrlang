@@ -36,7 +36,7 @@ static Expression buildExpr(TSNode node, const char* src, Arena* arena) {
         arena_free(&temp);
     } else if (strcmp(ts_node_type(node), "string_expr") == 0) {
         out.type = EXPRESSION_STRING;
-        char *str = ts_node_content(node, src, arena);
+        char* str = ts_node_content(node, src, arena);
         str += 1; // Move from the first "
         str[strlen(str) - 1] = '\0'; // Overwrite last " with a \0
         out.as.string = str;
@@ -50,10 +50,18 @@ static Expression buildExpr(TSNode node, const char* src, Arena* arena) {
 
         Expression* expr = arena_alloc(arena, sizeof(Expression));
         *expr = buildExpr(exprNode, src, arena);
-
         out.as.member = (MemberExpr){
                 .expr = expr,
                 .memberName = ts_node_content(memberNode, src, arena)
+        };
+    } else if (strcmp(ts_node_type(node), "call_expr") == 0) {
+        out.type = EXPRESSION_CALL;
+        TSNode exprNode = ts_node_child_by_field(node, "callee");
+
+        Expression* callee = arena_alloc(arena, sizeof(Expression));
+        *callee = buildExpr(exprNode, src, arena);
+        out.as.call = (CallExpr){
+            .callee = callee
         };
     } else if (strcmp(ts_node_type(node), "new_expr") == 0) {
         out.type = EXPRESSION_NEW;
@@ -82,6 +90,13 @@ static Statement* buildBlock(TSNode node, const char* src, Arena* arena) {
             stmts[i].as.var = (VarStmt){
                 .name = ts_node_content(nameNode, src, arena),
                 .value = buildExpr(valueNode, src, arena)
+            };
+        } else if (strcmp(ts_node_type(stmtNode), "call_stmt") == 0) {
+            TSNode callNode = ts_node_child(stmtNode, 0);
+
+            stmts[i].type = STATEMENT_CALL;
+            stmts[i].as.call = (CallStmt){
+                .callExpr = buildExpr(callNode, src, arena)
             };
         } else {
             abort();

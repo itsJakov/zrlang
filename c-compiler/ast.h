@@ -7,9 +7,14 @@
 typedef struct Expression Expression;
 
 typedef struct {
-    Expression* expr; // uh oh
+    Expression* expr;
     const char* memberName;
 } MemberExpr;
+
+typedef struct {
+    Expression* callee;
+    char args[]; // TBD
+} CallExpr;
 
 typedef struct {
     const char* className;
@@ -21,6 +26,7 @@ struct Expression {
         EXPRESSION_STRING,
         EXPRESSION_IDENTIFIER,
         EXPRESSION_MEMBER,
+        EXPRESSION_CALL,
         EXPRESSION_NEW
     } type;
     union {
@@ -28,6 +34,7 @@ struct Expression {
         const char* string;
         const char* identifier;
         MemberExpr member;
+        CallExpr call;
         NewExpr newExpr;
     } as;
 };
@@ -38,11 +45,17 @@ typedef struct {
 } VarStmt;
 
 typedef struct {
+    Expression callExpr;
+} CallStmt;
+
+typedef struct {
     enum {
         STATEMENT_VAR = 1,
+        STATEMENT_CALL
     } type;
     union {
         VarStmt var;
+        CallStmt call;
     } as;
 } Statement;
 

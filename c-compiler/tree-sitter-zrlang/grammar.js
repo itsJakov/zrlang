@@ -25,7 +25,7 @@ export default grammar({
     member_expr: $ => seq(
         field("expr", $._expr),
         ".",
-        field("member", $.identifier)
+        field("memberName", $.identifier)
     ),
 
     call_expr: $ => seq(
@@ -45,8 +45,11 @@ export default grammar({
         optional(seq("=", field("value", $._expr)))
     ),
 
+    call_stmt: $ => $.call_expr,
+
     _stmt: $ => choice(
-        $.var_stmt
+        $.var_stmt,
+        $.call_stmt
     ),
 
     block: $ => seq("{", repeat($._stmt), "}"),

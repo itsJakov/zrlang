@@ -35,6 +35,29 @@ static char* exprIntoLocal(FILE* f, Expression* expr, Optional(const char*) loca
             fprintf(f, "\t%s =l call $zre_get_field(l %s, l %%_str)\n", temp, sym);
             return temp;
         }
+        case EXPRESSION_CALL: {
+            CallExpr* call = &expr->as.call;
+            Expression* callee = call->callee;
+            switch (callee->type) {
+                case EXPRESSION_IDENTIFIER: {
+                    char* temp = getLocal(f, arena, local);
+                    fprintf(f, "\t%s =l call $__zre_%s()\n", temp, callee->as.identifier);
+                    return temp;
+                }
+                case EXPRESSION_MEMBER: {
+                    char* calleeTemp = exprIntoLocal(f, callee->as.member.expr, NULL, arena);
+
+                    fprintf(f, "\t%%_str =l add $strings, %lu\n", offsetForString(callee->as.member.memberName));
+                    fprintf(f, "\t%%_fn =l call $zre_method_virtual(l %s, l %%_str)\n", calleeTemp);
+                    char* temp = getLocal(f, arena, local);
+                    fprintf(f, "\t%s =l call %%_fn(l %s)\n", temp, calleeTemp);
+                    return temp;
+                }
+                default:
+                    fprintf(stderr, "Semantic error: Not a callable statement!\n");
+                    abort();
+            }
+        }
         case EXPRESSION_NEW: {
             char* temp = getLocal(f, arena, local);
             fprintf(f, "\t%s =l call $zre_alloc(l $%s)\n", temp, expr->as.newExpr.className);
@@ -67,11 +90,17 @@ static void compileBlock(FILE* f, Statement* block) {
                     }
                     default: {
                         Arena scratch = {0};
-                        exprIntoLocal(f, expr, var->name, &scratch); // resolve expr as a temporary
+                        exprIntoLocal(f, expr, var->name, &scratch);
                         arena_free(&scratch);
                     }
                 }
 
+                break;
+            }
+            case STATEMENT_CALL: {
+                Arena scratch = {0};
+                exprIntoLocal(f, &stmt->as.call.callExpr, NULL, &scratch);
+                arena_free(&scratch);
                 break;
             }
             default: abort_bug("Unknown statement type!\n");

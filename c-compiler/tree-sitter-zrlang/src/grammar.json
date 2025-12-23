@@ -55,7 +55,7 @@
         },
         {
           "type": "FIELD",
-          "name": "member",
+          "name": "memberName",
           "content": {
             "type": "SYMBOL",
             "name": "identifier"
@@ -143,12 +143,20 @@
         }
       ]
     },
+    "call_stmt": {
+      "type": "SYMBOL",
+      "name": "call_expr"
+    },
     "_stmt": {
       "type": "CHOICE",
       "members": [
         {
           "type": "SYMBOL",
           "name": "var_stmt"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "call_stmt"
         }
       ]
     },
