@@ -57,11 +57,22 @@ static Expression buildExpr(TSNode node, const char* src, Arena* arena) {
     } else if (strcmp(ts_node_type(node), "call_expr") == 0) {
         out.type = EXPRESSION_CALL;
         TSNode exprNode = ts_node_child_by_field(node, "callee");
+        TSNode argsNode = ts_node_child_by_field(node, "args");
 
         Expression* callee = arena_alloc(arena, sizeof(Expression));
         *callee = buildExpr(exprNode, src, arena);
+
+        size_t argsCount = ts_node_named_child_count(argsNode);
+        Expression* args = arena_alloc(arena, sizeof(Statement) * (argsCount + 1));
+        for (size_t i = 0; i < argsCount; i++) {
+            TSNode argNode = ts_node_named_child(argsNode, i);
+            args[i] = buildExpr(argNode, src, arena);
+        }
+        args[argsCount] = (Expression){0};
+
         out.as.call = (CallExpr){
-            .callee = callee
+            .callee = callee,
+            .args = args
         };
     } else if (strcmp(ts_node_type(node), "new_expr") == 0) {
         out.type = EXPRESSION_NEW;

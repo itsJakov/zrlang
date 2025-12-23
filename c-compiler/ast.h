@@ -13,7 +13,7 @@ typedef struct {
 
 typedef struct {
     Expression* callee;
-    char args[]; // TBD
+    Expression* args;
 } CallExpr;
 
 typedef struct {

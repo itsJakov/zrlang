@@ -38,25 +38,42 @@ static char* exprIntoLocal(FILE* f, Expression* expr, Optional(const char*) loca
         case EXPRESSION_CALL: {
             CallExpr* call = &expr->as.call;
             Expression* callee = call->callee;
+
+            char* argsStr = NULL;
+            for (Expression* arg = call->args; arg->type != 0; arg++) {
+                arrput(argsStr, 'l');
+                arrput(argsStr, ' ');
+                char* sym = exprIntoLocal(f, arg, NULL, arena);
+                size_t len = strlen(sym);
+                memcpy(arraddnptr(argsStr, len), sym, len);
+                arrput(argsStr, ',');
+                arrput(argsStr, ' ');
+            }
+            arrput(argsStr, '\0');
+
+            char* temp;
             switch (callee->type) {
                 case EXPRESSION_IDENTIFIER: {
-                    char* temp = getLocal(f, arena, local);
-                    fprintf(f, "\t%s =l call $__zre_%s()\n", temp, callee->as.identifier);
-                    return temp;
+                    temp = getLocal(f, arena, local);
+                    fprintf(f, "\t%s =l call $__zre_%s(%s)\n", temp, callee->as.identifier, argsStr);
+                    break;
                 }
                 case EXPRESSION_MEMBER: {
                     char* calleeTemp = exprIntoLocal(f, callee->as.member.expr, NULL, arena);
 
                     fprintf(f, "\t%%_str =l add $strings, %lu\n", offsetForString(callee->as.member.memberName));
                     fprintf(f, "\t%%_fn =l call $zre_method_virtual(l %s, l %%_str)\n", calleeTemp);
-                    char* temp = getLocal(f, arena, local);
-                    fprintf(f, "\t%s =l call %%_fn(l %s)\n", temp, calleeTemp);
-                    return temp;
+                    temp = getLocal(f, arena, local);
+                    fprintf(f, "\t%s =l call %%_fn(l %s, %s)\n", temp, calleeTemp, argsStr);
+                    break;
                 }
                 default:
                     fprintf(stderr, "Semantic error: Not a callable statement!\n");
                     abort();
             }
+
+            arrfree(argsStr);
+            return temp;
         }
         case EXPRESSION_NEW: {
             char* temp = getLocal(f, arena, local);

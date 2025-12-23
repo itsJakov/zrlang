@@ -28,10 +28,20 @@ export default grammar({
         field("memberName", $.identifier)
     ),
 
+    call_args: $ => seq(
+        "(",
+        optional(
+            seq(
+                $._expr,
+                repeat(seq(",", $._expr))
+            )
+        ),
+        ")"
+    ),
+
     call_expr: $ => seq(
         field("callee", $._expr),
-        "(",
-        ")"
+        field("args", $.call_args)
     ),
 
     new_expr: $ => seq(
