@@ -55,11 +55,9 @@ export default grammar({
         optional(seq("=", field("value", $._expr)))
     ),
 
-    call_stmt: $ => $.call_expr,
-
     _stmt: $ => choice(
         $.var_stmt,
-        $.call_stmt
+        $.call_expr
     ),
 
     block: $ => seq("{", repeat($._stmt), "}"),

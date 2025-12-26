@@ -3,11 +3,13 @@
 #include <string.h>
 #include <tree_sitter/api.h>
 
-#define ts_node_valid(node) !(ts_node_is_null(node) || ts_node_is_error(node))
-#define REQUIRE_NODE(node) if (!ts_node_valid(node)) return 0
+#include "map.h"
 
-#define static_strlen(s) (sizeof(s) / sizeof(s[0]) - 1)
-#define ts_node_child_by_field(node, name) ts_node_child_by_field_name(node, name, static_strlen(name))
+#define BUILDER_FN(_node, Type) static bool _node ##__builder(TSNode node, Type* out, const char* src, Arena* arena)
+typedef bool (*Builder)(TSNode node, void* out, const char* src, Arena* arena);
+static bool buildNode(TSNode node, void* out, const char* src, Arena* arena);
+
+#define ts_node_valid(node) !(ts_node_is_null(node) || ts_node_is_error(node))
 
 static char* ts_node_content(TSNode node, const char* src, Arena* arena) {
     if (!ts_node_valid(node)) return NULL;
@@ -21,102 +23,103 @@ static char* ts_node_content(TSNode node, const char* src, Arena* arena) {
     return buffer;
 }
 
-const TSLanguage* tree_sitter_zrlang(void);
+#define static_strlen(s) (sizeof(s) / sizeof(s[0]) - 1)
 
-static Expression buildExpr(TSNode node, const char* src, Arena* arena) {
-    Expression out;
-
-    if (ts_node_is_null(node)) {
-        out = (Expression){0};
-    } else if (strcmp(ts_node_type(node), "number_expr") == 0) {
-        out.type = EXPRESSION_NUMBER;
-        Arena temp = {0};
-        char* str = ts_node_content(node, src, &temp);
-        out.as.number = strtol(str, NULL, 0); // TODO: strtol could fail
-        arena_free(&temp);
-    } else if (strcmp(ts_node_type(node), "string_expr") == 0) {
-        out.type = EXPRESSION_STRING;
-        char* str = ts_node_content(node, src, arena);
-        str += 1; // Move from the first "
-        str[strlen(str) - 1] = '\0'; // Overwrite last " with a \0
-        out.as.string = str;
-    } else if (strcmp(ts_node_type(node), "identifier") == 0) {
-        out.type = EXPRESSION_IDENTIFIER;
-        out.as.identifier = ts_node_content(node, src, arena);
-    } else if (strcmp(ts_node_type(node), "member_expr") == 0) {
-        out.type = EXPRESSION_MEMBER;
-        TSNode exprNode = ts_node_child_by_field(node, "expr");
-        TSNode memberNode = ts_node_child_by_field(node, "memberName");
-
-        Expression* expr = arena_alloc(arena, sizeof(Expression));
-        *expr = buildExpr(exprNode, src, arena);
-        out.as.member = (MemberExpr){
-                .expr = expr,
-                .memberName = ts_node_content(memberNode, src, arena)
-        };
-    } else if (strcmp(ts_node_type(node), "call_expr") == 0) {
-        out.type = EXPRESSION_CALL;
-        TSNode exprNode = ts_node_child_by_field(node, "callee");
-        TSNode argsNode = ts_node_child_by_field(node, "args");
-
-        Expression* callee = arena_alloc(arena, sizeof(Expression));
-        *callee = buildExpr(exprNode, src, arena);
-
-        size_t argsCount = ts_node_named_child_count(argsNode);
-        Expression* args = arena_alloc(arena, sizeof(Statement) * (argsCount + 1));
-        for (size_t i = 0; i < argsCount; i++) {
-            TSNode argNode = ts_node_named_child(argsNode, i);
-            args[i] = buildExpr(argNode, src, arena);
-        }
-        args[argsCount] = (Expression){0};
-
-        out.as.call = (CallExpr){
-            .callee = callee,
-            .args = args
-        };
-    } else if (strcmp(ts_node_type(node), "new_expr") == 0) {
-        out.type = EXPRESSION_NEW;
-        TSNode classNameNode = ts_node_child_by_field(node, "className");
-        out.as.newExpr = (NewExpr){
-                .className = ts_node_content(classNameNode, src, arena)
-        };
-    } else {
-        abort();
+#define Y(name) buildNode(ts_node_child_by_field_name(node, #name, static_strlen(#name)), &out->name, src, arena);
+#define X(_node, Struct, ...) \
+    BUILDER_FN(_node, Struct) { \
+        *out = (Struct){0}; \
+        out->_type = k ##Struct; \
+        MAP(Y, __VA_ARGS__) \
+        return true; \
     }
+AST_NODES
+#undef Y
+#undef X
 
-    return out;
+#define X(_node, Item) \
+    BUILDER_FN(_node, Item*) { \
+        size_t count = ts_node_named_child_count(node); \
+        Item* list = arena_alloc(arena, sizeof(Item) * (count+1)); \
+        list[count] = (Item){0}; \
+        for (size_t i = 0; i < count; i++) \
+            buildNode(ts_node_named_child(node, i), list + i, src, arena); \
+        *out = list; \
+        return true; \
+    }
+AST_LISTS
+#undef X
+
+typedef struct {
+    const char* node;
+    Builder fn;
+} BuilderEntry;
+
+#define REGISTER(_node, ...) { #_node, (Builder)_node ##__builder },
+#define BUILDER_ENTRIES(...) MAP(REGISTER, __VA_ARGS__)
+
+BUILDER_FN(number_expr, NumberExpr) {
+    Arena temp = {0};
+    char* str = ts_node_content(node, src, &temp);
+    *out = (NumberExpr){
+        ._type = kNumberExpr,
+        .value = strtol(str, NULL, 0) // TODO: strtol could fail
+    };
+    arena_free(&temp);
+    return true;
 }
 
-// TODO: No TSNode error checking!
-static Statement* buildBlock(TSNode node, const char* src, Arena* arena) {
-    size_t count = ts_node_named_child_count(node);
-    Statement* stmts = arena_alloc(arena, sizeof(Statement) * (count + 1));
+BUILDER_FN(string_expr, StringExpr) {
+    char* str = ts_node_content(node, src, arena);
+    str += 1; // Move from the first "
+    str[strlen(str) - 1] = '\0'; // Overwrite last " with a \0
+    *out = (StringExpr){
+        ._type = kStringExpr,
+        .value = str
+    };
+    return true;
+}
+
+BUILDER_FN(identifier, Identifier) {
+    *out = (Identifier){
+        ._type = kIdentifierExpr,
+        .value = ts_node_content(node, src, arena)
+    };
+    return true;
+}
+
+const BuilderEntry builders[] = {
+#define X REGISTER
+        AST_NODES
+        AST_LISTS
+#undef X
+        BUILDER_ENTRIES(number_expr, string_expr, identifier)
+};
+
+static bool buildNode(TSNode node, void* out, const char* src, Arena* arena) {
+    if (!ts_node_valid(node)) {
+        printf("Invalid node!");
+        if (!ts_node_is_null(node) && ts_node_has_error(node)) {
+            printf("not null but has errors");
+        }
+        printf("\n");
+        return true;
+    }
+
+    const char* nodeType = ts_node_type(node);
+    static size_t count = sizeof(builders) / sizeof(BuilderEntry);
     for (size_t i = 0; i < count; i++) {
-        TSNode stmtNode = ts_node_named_child(node, i);
-        if (strcmp(ts_node_type(stmtNode), "var_stmt") == 0) {
-            TSNode nameNode = ts_node_child_by_field(stmtNode, "name");
-            TSNode valueNode = ts_node_child_by_field(stmtNode, "value");
-
-            stmts[i].type = STATEMENT_VAR;
-            stmts[i].as.var = (VarStmt){
-                .name = ts_node_content(nameNode, src, arena),
-                .value = buildExpr(valueNode, src, arena)
-            };
-        } else if (strcmp(ts_node_type(stmtNode), "call_stmt") == 0) {
-            TSNode callNode = ts_node_child(stmtNode, 0);
-
-            stmts[i].type = STATEMENT_CALL;
-            stmts[i].as.call = (CallStmt){
-                .callExpr = buildExpr(callNode, src, arena)
-            };
-        } else {
-            abort();
+        if (strcmp(builders[i].node, nodeType) == 0) {
+            return builders[i].fn(node, out, src, arena);
         }
     }
-    stmts[count] = (Statement){0};
-
-    return stmts;
+    fprintf(stderr, "[BUG] No builder for node %s!\n", nodeType);
+    *(char*)out = 0;
+    return false;
+//    abort();
 }
+
+const TSLanguage* tree_sitter_zrlang(void);
 
 ClassDeclaration* buildAST(Arena* arena, const char* src, size_t srcLen) {
     TSParser *parser = ts_parser_new();
@@ -124,70 +127,12 @@ ClassDeclaration* buildAST(Arena* arena, const char* src, size_t srcLen) {
     TSTree *tree = ts_parser_parse_string(parser, NULL, src, srcLen);
 
     TSNode rootNode = ts_tree_root_node(tree);
-    size_t count = ts_node_named_child_count(rootNode);
-    ClassDeclaration* classDeclarations = arena_alloc(arena, sizeof(ClassDeclaration) * (count + 1));
-    for (size_t i = 0; i < count; i++) {
-        TSNode classDef = ts_node_named_child(rootNode, i);
-        REQUIRE_NODE(classDef);
 
-        TSNode className = ts_node_child_by_field(classDef, "name");
-        REQUIRE_NODE(className);
-
-        TSNode superNode = ts_node_child_by_field(classDef, "super");
-
-        TSNode membersNode = ts_node_child_by_field(classDef, "members");
-        ClassMember* members;
-        if (ts_node_valid(membersNode)) {
-            size_t memberCount = ts_node_named_child_count(membersNode);
-            members = arena_alloc(arena, sizeof(ClassMember) * (memberCount + 1));
-
-            for (size_t j = 0; j < memberCount; j++) {
-                TSNode memberNode = ts_node_named_child(membersNode, j);
-                REQUIRE_NODE(memberNode);
-
-                if (strcmp(ts_node_type(memberNode), "class_field_decl") == 0) {
-                    TSNode nameNode = ts_node_child_by_field(memberNode, "name");
-                    REQUIRE_NODE(nameNode);
-                    TSNode typeNode = ts_node_child_by_field(memberNode, "type");
-                    REQUIRE_NODE(typeNode);
-
-                    members[j].type = CLASS_MEMBER_FIELD;
-                    members[j].as.field = (ClassFieldDecl){
-                            .name = ts_node_content(nameNode, src, arena),
-                            .type = ts_node_content(typeNode, src, arena)
-                    };
-                } else if (strcmp(ts_node_type(memberNode), "method_decl") == 0) {
-                    TSNode nameNode = ts_node_child_by_field(memberNode, "name");
-                    REQUIRE_NODE(nameNode);
-                    TSNode blockNode = ts_node_child_by_field(memberNode, "block");
-                    REQUIRE_NODE(blockNode);
-
-                    members[j].type = CLASS_MEMBER_METHOD;
-                    members[j].as.method = (MethodDecl){
-                            .name = ts_node_content(nameNode, src, arena),
-                            .block = buildBlock(blockNode, src, arena)
-                    };
-                } else {
-                    return false;
-                }
-            }
-
-            members[memberCount] = (ClassMember){0};
-        } else {
-            members = arena_alloc(arena, sizeof(ClassMember));
-            members[0] = (ClassMember){0};
-        }
-
-        classDeclarations[i] = (ClassDeclaration){
-                .name = ts_node_content(className, src, arena),
-                .super = ts_node_content(superNode, src, arena),
-                .members = members
-        };
-    }
-    classDeclarations[count] = (ClassDeclaration){0};
+    ClassDeclaration* classes;
+    source_file__builder(rootNode, &classes, src, arena);
 
     ts_tree_delete(tree);
     ts_parser_delete(parser);
 
-    return classDeclarations;
+    return classes;
 }

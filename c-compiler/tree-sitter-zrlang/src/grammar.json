@@ -189,10 +189,6 @@
         }
       ]
     },
-    "call_stmt": {
-      "type": "SYMBOL",
-      "name": "call_expr"
-    },
     "_stmt": {
       "type": "CHOICE",
       "members": [
@@ -202,7 +198,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "call_stmt"
+          "name": "call_expr"
         }
       ]
     },
