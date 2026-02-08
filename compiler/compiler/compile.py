@@ -53,18 +53,23 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
         f.write(f"\t{temp} =l call $zre_alloc(l ${expr.cls_name})\n")
         return temp
     elif isinstance(expr, BinaryExpr):
+        if expr.op == BinaryOperation.AND or expr.op == BinaryOperation.OR:
+            sys.exit(f"Logical operators not supported yet!")
+
         lhs = expr_into_local(f, expr.lhs, unit_ctx)
         rhs = expr_into_local(f, expr.rhs, unit_ctx)
 
-        keyword = "c"
         match expr.op:
-            case BinaryOperation.EQ: keyword += "eq"
-            case BinaryOperation.NEQ: keyword += "ne"
-            case BinaryOperation.GT: keyword += "sgt"
-            case BinaryOperation.GTE: keyword += "sge"
-            case BinaryOperation.LT: keyword += "slt"
-            case BinaryOperation.LTE: keyword += "sle"
-        keyword += "l"
+            case BinaryOperation.ADD: keyword = "add"
+            case BinaryOperation.SUB: keyword = "sub"
+            case BinaryOperation.MUL: keyword = "mul"
+            case BinaryOperation.DIV: keyword = "div"
+            case BinaryOperation.EQ: keyword = "ceql"
+            case BinaryOperation.NEQ: keyword = "cnel"
+            case BinaryOperation.GT: keyword = "csgtl"
+            case BinaryOperation.GTE: keyword = "csgel"
+            case BinaryOperation.LT: keyword = "csltl"
+            case BinaryOperation.LTE: keyword = "cslel"
 
         temp = get_temp_sym()
         f.write(f"\t{temp} =l {keyword} {lhs}, {rhs}\n")

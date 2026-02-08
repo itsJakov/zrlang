@@ -9,28 +9,10 @@ class QBEUser : RootObject {
     var firstName: String
     
     func doSomething() {
-        var user = new User
-        user.username = "test"
-        
-        var array = new Array
-        array.append(user)
-        
-        if array.getIsEmpty() {
-            print("Array is empty")
-            
-            if 1 {
-                print("will happen sometimes hihi")
-            } 
-        } else {
-            print("Array is not empty")
-            array.get(0).toString().printToStdout()
-            
-            if 0 {
-                print("will never happen")
-            }  
+        var constant = 2
+        if constant * 2 / 2 >= 2 {
+            print("guess it works")
         }
-            
-        print("Method End")
     }
 }
 """
