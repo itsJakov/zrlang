@@ -2,8 +2,8 @@ import sys
 from typing import Optional
 
 from compiler.unit_context import UnitContext
-from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, LocalExpr, AllocExpr, CallStmt, \
-    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt, BinaryOperation, BinaryExpr
+from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, LocalExpr, AllocExpr, CallExpr, \
+    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt, BinaryOperation, BinaryExpr, ExprStmt
 
 depth = 0 # TODO
 if_index = 0 # TODO
@@ -84,8 +84,9 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
             else:
                 expr_into_local(f, stmt.expr, unit_ctx, local=stmt.local)
 
-        elif isinstance(stmt, CallStmt):
-            expr_into_local(f, stmt.call, unit_ctx)
+        elif isinstance(stmt, ExprStmt):
+            # TODO: Should all expressions be allowed as statements?
+            expr_into_local(f, stmt.expr, unit_ctx)
 
         elif isinstance(stmt, AssignStmt):
             if isinstance(stmt.assignee, LocalExpr):

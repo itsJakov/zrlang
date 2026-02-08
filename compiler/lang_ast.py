@@ -65,8 +65,8 @@ class VarStmt(_Statement):
     expr: Optional[_Expression]
 
 @dataclass
-class CallStmt(_Statement):
-    call: CallExpr
+class ExprStmt(_Statement):
+    expr: _Expression
 
 @dataclass
 class AssignStmt(_Statement):
