@@ -42,18 +42,42 @@ class AllocExpr(_Expression):
     cls_name: str
 
 class BinaryOperation(Enum):
+    # Comparison
     EQ = "=="
     NEQ = "!="
     GT = ">"
     GTE = ">="
     LT = "<"
     LTE = "<="
+    # Arithmetic
+    ADD = "+"
+    SUB = "-"
+    MUL = "*"
+    DIV = "/"
+    # Logical
+    AND = "&&"
+    OR = "||"
 
 @dataclass
 class BinaryExpr(_Expression):
     lhs: _Expression
     op: BinaryOperation
     rhs: _Expression
+
+    def __init__(self, lhs: _Expression, op: Token, rhs: _Expression):
+        self.lhs = lhs
+        self.op = BinaryOperation(op.value)
+        self.rhs = rhs
+
+class UnaryOperation(Enum):
+    NOT = "!"
+    NEG = "-"
+    POS = "+"
+
+@dataclass
+class UnaryExpr(_Expression):
+    op: UnaryOperation
+    expr: _Expression
 
 # Statements
 class _Statement(_Ast):
@@ -110,9 +134,6 @@ class ToAst(Transformer):
 
     def class_body(self, l: list[_ClassMember]) -> list[_ClassMember]:
         return l
-
-    def BINARY_OP(self, t: Token) -> BinaryOperation:
-        return BinaryOperation(t.value)
 
     def SIGNED_NUMBER(self, t: Token) -> int:
         return int(t.value)

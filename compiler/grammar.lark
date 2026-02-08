@@ -10,28 +10,78 @@ method_decl: "func" CNAME "(" ")" block
 block: "{" statement* "}"
 ?statement: var_stmt | expr_stmt | assign_stmt | if_stmt
 var_stmt: "var" CNAME ["=" expr] _END
-assign_stmt: expr "=" expr _END
 expr_stmt: expr _END
+assign_stmt: lvalue "=" expr _END
 if_stmt: "if" expr block ["else" block]
 
-?expr: int_expr
-    | string_expr
-    | local_expr
+// Expressions (lowest to highest precedence)
+?expr: logical_or
+
+?logical_or: logical_and
+    | logical_or OR logical_and -> binary_expr
+
+?logical_and: equality
+    | logical_and AND equality -> binary_expr
+
+?equality: relational
+    | equality EQ relational -> binary_expr
+    | equality NEQ relational -> binary_expr
+
+?relational: additive
+    | relational LT additive -> binary_expr
+    | relational LTE additive -> binary_expr
+    | relational GT additive -> binary_expr
+    | relational GTE additive -> binary_expr
+
+?additive: multiplicative
+    | additive ADD multiplicative -> binary_expr
+    | additive SUB multiplicative -> binary_expr
+
+?multiplicative: unary
+    | multiplicative MUL unary -> binary_expr
+    | multiplicative DIV unary -> binary_expr
+
+?unary: postfix
+    | NOT unary -> unary_expr
+    | SUB unary -> unary_expr
+    | ADD unary -> unary_expr
+
+?postfix: primary
     | member_expr
     | call_expr
+
+?primary: int_expr
+    | string_expr
+    | local_expr
     | alloc_expr
-    | binary_expr
+    | "(" expr ")"
+
+?lvalue: local_expr
+    | member_expr
+
 int_expr: SIGNED_NUMBER
 string_expr: ESCAPED_STRING
 local_expr: CNAME
-member_expr: expr "." CNAME
-call_expr: expr "(" call_args ")"
+member_expr: postfix "." CNAME
+call_expr: postfix "(" call_args ")"
 alloc_expr: "new" CNAME
-binary_expr: expr BINARY_OP expr
 
 call_args: [expr ("," expr)*]
 
-BINARY_OP: "==" | "!=" | ">" | ">=" | "<" | "<="
+OR: "||"
+AND: "&&"
+EQ: "=="
+NEQ: "!="
+LT: "<"
+LTE: "<="
+GT: ">"
+GTE: ">="
+ADD: "+"
+SUB: "-"
+MUL: "*"
+DIV: "/"
+NOT: "!"
+
 _END: WS_INLINE? (NEWLINE | ";")
 
 %import common.WS
