@@ -3,7 +3,7 @@ from typing import Optional
 
 from compiler.unit_context import UnitContext
 from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, LocalExpr, AllocExpr, CallStmt, \
-    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt
+    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt, BinaryOperation, BinaryExpr
 
 depth = 0 # TODO
 if_index = 0 # TODO
@@ -51,6 +51,23 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
     elif isinstance(expr, AllocExpr):
         temp = get_temp_sym()
         f.write(f"\t{temp} =l call $zre_alloc(l ${expr.cls_name})\n")
+        return temp
+    elif isinstance(expr, BinaryExpr):
+        lhs = expr_into_local(f, expr.lhs, unit_ctx)
+        rhs = expr_into_local(f, expr.rhs, unit_ctx)
+
+        keyword = "c"
+        match expr.op:
+            case BinaryOperation.EQ: keyword += "eq"
+            case BinaryOperation.NEQ: keyword += "ne"
+            case BinaryOperation.GT: keyword += "sgt"
+            case BinaryOperation.GTE: keyword += "sge"
+            case BinaryOperation.LT: keyword += "slt"
+            case BinaryOperation.LTE: keyword += "sle"
+        keyword += "l"
+
+        temp = get_temp_sym()
+        f.write(f"\t{temp} =l {keyword} {lhs}, {rhs}\n")
         return temp
     else:
         sys.exit(f"Unsupported expr {expr}")

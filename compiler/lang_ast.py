@@ -1,5 +1,6 @@
 import sys
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -39,6 +40,20 @@ class CallExpr(_Expression):
 @dataclass
 class AllocExpr(_Expression):
     cls_name: str
+
+class BinaryOperation(Enum):
+    EQ = "=="
+    NEQ = "!="
+    GT = ">"
+    GTE = ">="
+    LT = "<"
+    LTE = "<="
+
+@dataclass
+class BinaryExpr(_Expression):
+    lhs: _Expression
+    op: BinaryOperation
+    rhs: _Expression
 
 # Statements
 class _Statement(_Ast):
@@ -95,6 +110,9 @@ class ToAst(Transformer):
 
     def class_body(self, l: list[_ClassMember]) -> list[_ClassMember]:
         return l
+
+    def BINARY_OP(self, t: Token) -> BinaryOperation:
+        return BinaryOperation(t.value)
 
     def SIGNED_NUMBER(self, t: Token) -> int:
         return int(t.value)
