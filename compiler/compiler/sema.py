@@ -199,7 +199,6 @@ class SemanticAnalyzer:
             if stmt.else_block is not None:
                 self._analyze_block(stmt.else_block)
 
-
     def _analyze_expression(self, expr: _Expression) -> Optional[Type]:
         if isinstance(expr, IntExpr):
             return IntType()
@@ -250,7 +249,9 @@ class SemanticAnalyzer:
             callee_type = self._analyze_expression(expr.callee)
 
             if isinstance(callee_type, FunctionType):
-                # TODO: Type check arguments
+                # TODO: Type check arguments against parameter types
+                for arg in expr.args:
+                    self._analyze_expression(arg)
                 return callee_type.return_type
 
             eprint(f"Attempting to call non-callable type {type(callee_type).__name__}")
