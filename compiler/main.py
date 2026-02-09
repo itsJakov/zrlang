@@ -2,23 +2,36 @@ import subprocess
 import sys
 
 from compiler.compile import compile_ir
+from compiler.sema import SemanticAnalyzer
 from lang_ast import parse
 
 INPUT = """
 class QBEUser : RootObject {
-    var firstName: String
+    var username: String
     
     func doSomething() {
-        var constant = 2
-        if constant * 2 / 2 >= 2 {
-            print("guess it works")
+        var user = new QBEUser
+        user.username = "test"
+        
+        var array = new Array
+        array.append(user)
+        
+        if array.getIsEmpty() {
+            print("Array is empty")
+        } else {
+            print("Array is not empty")
+            array.get(0).toString().printToStdout()
         }
+            
+        print("Method End")
     }
 }
 """
 
 if __name__ == "__main__":
     result = parse(INPUT)
+
+    SemanticAnalyzer().analyze(result)
 
     with open("ir.ssa", "w") as f:
         compile_ir(f, result)
