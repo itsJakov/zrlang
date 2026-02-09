@@ -1,6 +1,6 @@
 import sys
 from dataclasses import dataclass, field
-from typing import Optional, ContextManager, Union
+from typing import Optional, Union
 
 from lang_ast import ClassDecl, ClassField, MethodDecl, _Expression, IntExpr, StringExpr, SymbolExpr, MemberExpr, \
     CallExpr, BinaryExpr, BinaryOperation, _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr
@@ -10,58 +10,71 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 @dataclass
-class Void:
+class VoidType:
     pass
 
 @dataclass
-class Boolean:
+class BoolType:
     pass
 
 @dataclass
-class Integer:
+class IntType:
     pass
 
 @dataclass
-class String:
-    pass
+class ObjectType:
+    cls: 'Class'
 
 @dataclass
-class Instance:
-    cls: 'ClassSymbol'
+class FunctionType:
+    param_types: list['Type']
+    return_type: 'Type'
+
+Type = Union[VoidType, BoolType, IntType, ObjectType, FunctionType]
 
 @dataclass
 class Symbol:
     name: str
 
-# TODO: Why does a Method have a name? Shouldn't it just be a type?
 @dataclass
-class Method(Symbol):
-    return_type: 'Type'
-
-@dataclass
-class ClassSymbol(Symbol):
-    methods: dict[str, Method] = field(default_factory=dict)
-    fields: dict[str, 'Type'] = field(default_factory=dict)
+class VariableSymbol(Symbol):
+    type: Type
 
 @dataclass
-class LocalSymbol(Symbol):
-    type: 'Type'
+class FunctionSymbol(Symbol):
+    type: FunctionType
 
-Type = Union[Void, Boolean, Integer, String, Instance, Method, ClassSymbol]
+@dataclass
+class Class(Symbol):
+    methods: dict[str, FunctionType] = field(default_factory=dict)
+    fields: dict[str, Type] = field(default_factory=dict)
+    parent: Optional['Class'] = None
 
-class StandardSymbols:
-    STRING = ClassSymbol(name="String", methods={
-        "printToStdout": Method(name="printToStdout", return_type=Void()),
-    })
-    OBJECT = ClassSymbol(name="RootObject", methods={
-        "toString": Method(name="toString", return_type=Instance(cls=STRING)),
-    })
-    ARRAY = ClassSymbol(name="Array", methods={
-        "append": Method(name="append", return_type=Void()),
-        "get": Method(name="get", return_type=Instance(cls=OBJECT)),
-        "getIsEmpty": Method(name="getIsEmpty", return_type=Boolean())
-    })
-    PRINT = Method(name="print", return_type=Void())
+class StandardTypes:
+    STRING_CLASS = Class(
+        name="String",
+        methods={
+            "printToStdout": FunctionType(param_types=[], return_type=VoidType()),
+        }
+    )
+
+    OBJECT_CLASS = Class(
+        name="RootObject",
+        methods={
+            "toString": FunctionType(param_types=[], return_type=ObjectType(cls=STRING_CLASS)),
+        }
+    )
+
+    ARRAY_CLASS = Class(
+        name="Array",
+        methods={
+            "append": FunctionType(param_types=[], return_type=VoidType()),
+            "get": FunctionType(param_types=[], return_type=ObjectType(cls=OBJECT_CLASS)),
+            "getIsEmpty": FunctionType(param_types=[], return_type=BoolType()),
+        }
+    )
+
+    PRINT_FUNCTION = FunctionSymbol(name="print", type=FunctionType(param_types=[], return_type=VoidType()))
 
 class Scope:
     def __init__(self, parent: Optional['Scope'] = None):
@@ -84,9 +97,10 @@ class Scope:
     @staticmethod
     def global_scope() -> 'Scope':
         scope = Scope()
-        scope.define(StandardSymbols.STRING) # TODO: Not like this
-        scope.define(StandardSymbols.ARRAY)
-        scope.define(StandardSymbols.PRINT)
+        scope.define(StandardTypes.STRING_CLASS)
+        scope.define(StandardTypes.ARRAY_CLASS)
+        scope.define(StandardTypes.OBJECT_CLASS)
+        scope.define(StandardTypes.PRINT_FUNCTION)
         return scope
 
 
@@ -121,19 +135,35 @@ class SemanticAnalyzer:
         return True
 
     def _collect_class_info(self, cls: ClassDecl):
-        class_info = ClassSymbol(name=cls.name)
+        class_obj = Class(name=cls.name)
+
         for member in cls.members:
             if isinstance(member, ClassField):
-                if member.type == "String":
-                    cls = StandardSymbols.STRING
-                else:
-                    cls = ClassSymbol(name=member.type) # TODO: Resolve Type properly
-                class_info.fields[member.name] = Instance(cls=cls)
+                field_type = self._resolve_type_name(member.type)
+                class_obj.fields[member.name] = field_type
             elif isinstance(member, MethodDecl):
-                class_info.methods[member.name] = Method(name=member.name, return_type=Void())
+                method_type = FunctionType(param_types=[], return_type=VoidType())
+                class_obj.methods[member.name] = method_type
             else:
                 self._error(f"Unknown class member type: {type(member)}")
-        self.scope.define(class_info)
+
+        self.scope.define(class_obj)
+
+    # TODO: Do this properly
+    def _resolve_type_name(self, type_name: str) -> Type:
+        if type_name == "Int":
+            return IntType()
+        elif type_name == "Bool":
+            return BoolType()
+        elif type_name == "Void":
+            return VoidType()
+
+        symbol = self.scope.lookup(type_name)
+        if isinstance(symbol, Class):
+            return ObjectType(cls=symbol)
+
+        self._error(f"Unknown type: {type_name}")
+        return VoidType()
 
     def _analyze_method(self, method: MethodDecl):
         self.push_scope()
@@ -150,7 +180,7 @@ class SemanticAnalyzer:
     def _analyze_statement(self, stmt: _Statement):
         if isinstance(stmt, VarStmt):
             value_type = self._analyze_expression(stmt.expr)
-            self.scope.define(LocalSymbol(name=stmt.local, type=value_type))
+            self.scope.define(VariableSymbol(name=stmt.local, type=value_type))
 
         if isinstance(stmt, ExprStmt):
             self._analyze_expression(stmt.expr)
@@ -163,7 +193,7 @@ class SemanticAnalyzer:
 
         if isinstance(stmt, IfStmt):
             condition_type = self._analyze_expression(stmt.condition)
-            if not isinstance(condition_type, Boolean):
+            if not isinstance(condition_type, BoolType):
                 eprint(f"If condition must be of type Bool, got {type(condition_type).__name__}")
             self._analyze_block(stmt.block)
             if stmt.else_block is not None:
@@ -172,56 +202,56 @@ class SemanticAnalyzer:
 
     def _analyze_expression(self, expr: _Expression) -> Optional[Type]:
         if isinstance(expr, IntExpr):
-            return Integer()
+            return IntType()
 
         if isinstance(expr, StringExpr):
-            return Instance(cls=StandardSymbols.STRING)
+            return ObjectType(cls=StandardTypes.STRING_CLASS)
 
-        # TODO: This is not a good idea what about type names?
         if isinstance(expr, SymbolExpr):
             symbol = self.scope.lookup(expr.name)
             if symbol is None:
                 eprint(f"Undefined symbol {expr.name}")
                 return None
-            if isinstance(symbol, LocalSymbol):
+            if isinstance(symbol, VariableSymbol):
                 return symbol.type
-            if isinstance(symbol, Method):
-                return symbol
-            else:
-                eprint(f"{expr.name} is not a expression")
+            if isinstance(symbol, FunctionSymbol):
+                return symbol.type
+            if isinstance(symbol, Class):
+                # TODO: Static access (and reflection one day)
+                eprint(f"{expr.name} is a type name, not a value")
                 return None
+            eprint(f"{expr.name} cannot be used as an expression")
+            return None
 
         if isinstance(expr, MemberExpr):
             target_type = self._analyze_expression(expr.expr)
-            match target_type:
-                case Instance(cls):
-                    field_type = cls.fields.get(expr.member)
-                    if field_type is not None:
-                        return field_type
 
-                    method = cls.methods.get(expr.member)
-                    if method is not None:
-                        return method
+            if isinstance(target_type, ObjectType):
+                field_type = target_type.cls.fields.get(expr.member)
+                if field_type is not None:
+                    return field_type
 
-                    # If Field -> return type of the field
-                    # If Method -> return Method
-                    eprint(f"Undefined member {expr.member} on class {cls.name}")
-                    return None
-                case ClassSymbol():
-                    eprint(f"Static member access not supported yet!")
-                    return None
-                case _:
-                    eprint(f"Member access not supported on type {type(target_type).__name__}")
-                    return None
+                method_type = target_type.cls.methods.get(expr.member)
+                if method_type is not None:
+                    return method_type
+
+                eprint(f"Undefined member {expr.member} on class {cls.name}")
+                return None
+
+            eprint(f"Member access not supported on type {type(target_type).__name__}")
+            return None
 
         if isinstance(expr, CallExpr):
             callee_type = self._analyze_expression(expr.callee)
-            match callee_type:
-                case Method(name, return_type):
-                    return return_type
-                case _:
-                    eprint(f"Attempting to call non-callable type {type(callee_type).__name__}")
-                    return None
+            if callee_type is None:
+                return None
+
+            if isinstance(callee_type, FunctionType):
+                # TODO: Type check arguments
+                return callee_type.return_type
+
+            eprint(f"Attempting to call non-callable type {type(callee_type).__name__}")
+            return None
 
         if isinstance(expr, BinaryExpr):
             lhs_type = self._analyze_expression(expr.lhs)
@@ -233,14 +263,14 @@ class SemanticAnalyzer:
 
             match expr.op:
                 case BinaryOperation.ADD | BinaryOperation.SUB | BinaryOperation.MUL | BinaryOperation.DIV:
-                    if isinstance(lhs_type, Integer):
-                        return Integer()
+                    if isinstance(lhs_type, IntType):
+                        return IntType()
                     else:
                         eprint(f"Arithmetic operations only supported on Int, got {type(lhs_type).__name__}")
                         return None
                 case BinaryOperation.EQ | BinaryOperation.NEQ | BinaryOperation.GT | BinaryOperation.GTE | BinaryOperation.LT | BinaryOperation.LTE:
-                    if isinstance(lhs_type, Integer):
-                        return Boolean()
+                    if isinstance(lhs_type, IntType):
+                        return BoolType()
                     else:
                         eprint(f"Comparison operations only supported on Int, got {type(lhs_type).__name__}")
                         return None
@@ -253,10 +283,10 @@ class SemanticAnalyzer:
             if class_symbol is None:
                 eprint(f"Undefined class {expr.cls_name}")
                 return None
-            if not isinstance(class_symbol, ClassSymbol):
+            if not isinstance(class_symbol, Class):
                 eprint(f"{expr.cls_name} is not a class")
                 return None
-            return Instance(cls=class_symbol)
+            return ObjectType(cls=class_symbol)
 
         eprint(f"Unknown expression type: {type(expr).__name__}")
         return None
