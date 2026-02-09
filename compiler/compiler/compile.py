@@ -9,7 +9,7 @@ depth = 0 # TODO
 if_index = 0 # TODO
 
 def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optional[str] = None) -> str:
-    def get_temp_sym() -> str: # TODO: No ARC...
+    def get_temp_sym() -> str: # TODO: This should be part of FunctionContext
         if local is not None: return f"%{local}"
         global depth
         sym = f"%_temp{depth}"
@@ -118,7 +118,7 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
 
             end_label = f"@if{idx}_end"
             true_label = f"@if{idx}_true"
-            if stmt.elseBlock is None:
+            if stmt.else_block is None:
                 false_label = end_label
             else:
                 false_label = f"@if{idx}_false"
@@ -127,12 +127,12 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
 
             f.write(f"{true_label}\n")
             compile_block(f, stmt.block, unit_ctx)
-            if stmt.elseBlock is not None:
+            if stmt.else_block is not None:
                 f.write(f"\tjmp {end_label}\n")
 
-            if stmt.elseBlock is not None:
+            if stmt.else_block is not None:
                 f.write(f"{false_label}\n")
-                compile_block(f, stmt.elseBlock, unit_ctx)
+                compile_block(f, stmt.else_block, unit_ctx)
 
             f.write(f"{end_label}\n")
 

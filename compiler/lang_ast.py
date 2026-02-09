@@ -101,7 +101,7 @@ class AssignStmt(_Statement):
 class IfStmt(_Statement):
     condition: _Expression
     block: list[_Statement]
-    elseBlock: Optional[list[_Statement]]
+    else_block: Optional[list[_Statement]]
 
 # Class
 class _ClassMember(_Ast):
