@@ -52,16 +52,16 @@ if_stmt: "if" expr block ["else" block]
 
 ?primary: int_expr
     | string_expr
-    | local_expr
+    | symbol_expr
     | alloc_expr
     | "(" expr ")"
 
-?lvalue: local_expr
+?lvalue: symbol_expr
     | member_expr
 
 int_expr: SIGNED_NUMBER
 string_expr: ESCAPED_STRING
-local_expr: CNAME
+symbol_expr: CNAME
 member_expr: postfix "." CNAME
 call_expr: postfix "(" call_args ")"
 alloc_expr: "new" CNAME

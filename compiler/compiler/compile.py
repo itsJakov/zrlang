@@ -2,7 +2,7 @@ import sys
 from typing import Optional
 
 from compiler.unit_context import UnitContext
-from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, LocalExpr, AllocExpr, CallExpr, \
+from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, SymbolExpr, AllocExpr, CallExpr, \
     MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt, BinaryOperation, BinaryExpr, ExprStmt
 
 depth = 0 # TODO
@@ -22,8 +22,8 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
         temp = get_temp_sym()
         f.write(f"\t{temp} =l add $strings, {unit_ctx.string_offset(expr.value)}\n")
         return temp
-    elif isinstance(expr, LocalExpr):
-        return f"%{expr.local}"
+    elif isinstance(expr, SymbolExpr):
+        return f"%{expr.name}"
     elif isinstance(expr, MemberExpr):
         sym = expr_into_local(f, expr.expr, unit_ctx)
         temp = get_temp_sym()
@@ -32,10 +32,10 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
         return temp
     elif isinstance(expr, CallExpr):
         call = expr
-        if isinstance(call.callee, LocalExpr):
+        if isinstance(call.callee, SymbolExpr):
             args = ", ".join(f"l {expr_into_local(f, symbol, unit_ctx)}" for symbol in call.args)
             temp = get_temp_sym()
-            f.write(f"\t{temp} =l call $__zre_{call.callee.local}({args})\n")
+            f.write(f"\t{temp} =l call $__zre_{call.callee.name}({args})\n")
             return temp
         elif isinstance(call.callee, MemberExpr):
             sym = expr_into_local(f, call.callee.expr, unit_ctx)
@@ -84,8 +84,8 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
                 f.write(f"\t%{stmt.local} =l copy 0\n")
             elif isinstance(stmt.expr, IntExpr):
                 f.write(f"\t%{stmt.local} =l copy {stmt.expr.value}\n")
-            elif isinstance(stmt.expr, LocalExpr):
-                f.write(f"\t%{stmt.local} =l copy %{stmt.expr.local}\n")
+            elif isinstance(stmt.expr, SymbolExpr):
+                f.write(f"\t%{stmt.local} =l copy %{stmt.expr.name}\n")
             else:
                 expr_into_local(f, stmt.expr, unit_ctx, local=stmt.local)
 
@@ -94,13 +94,13 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
             expr_into_local(f, stmt.expr, unit_ctx)
 
         elif isinstance(stmt, AssignStmt):
-            if isinstance(stmt.assignee, LocalExpr):
+            if isinstance(stmt.assignee, SymbolExpr):
                 if isinstance(stmt.value, IntExpr):
-                    f.write(f"\t%{stmt.assignee.local} =l copy {stmt.value.value}\n")
-                elif isinstance(stmt.value, LocalExpr):
-                    f.write(f"\t%{stmt.assignee.local} =l copy %{stmt.value.local}\n")
+                    f.write(f"\t%{stmt.assignee.name} =l copy {stmt.value.value}\n")
+                elif isinstance(stmt.value, SymbolExpr):
+                    f.write(f"\t%{stmt.assignee.name} =l copy %{stmt.value.name}\n")
                 else:
-                    expr_into_local(f, stmt.value, unit_ctx, local=stmt.assignee.local)
+                    expr_into_local(f, stmt.value, unit_ctx, local=stmt.assignee.name)
             elif isinstance(stmt.assignee, MemberExpr):
                 instance_sym = expr_into_local(f, stmt.assignee.expr, unit_ctx)
                 field_name = stmt.assignee.member

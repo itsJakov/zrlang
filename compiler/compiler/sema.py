@@ -2,7 +2,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Optional, ContextManager, Union
 
-from lang_ast import ClassDecl, ClassField, MethodDecl, _Expression, IntExpr, StringExpr, LocalExpr, MemberExpr, \
+from lang_ast import ClassDecl, ClassField, MethodDecl, _Expression, IntExpr, StringExpr, SymbolExpr, MemberExpr, \
     CallExpr, BinaryExpr, BinaryOperation, _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr
 
 
@@ -178,17 +178,17 @@ class SemanticAnalyzer:
             return Instance(cls=StandardSymbols.STRING)
 
         # TODO: This is not a good idea what about type names?
-        if isinstance(expr, LocalExpr):
-            symbol = self.scope.lookup(expr.local)
+        if isinstance(expr, SymbolExpr):
+            symbol = self.scope.lookup(expr.name)
             if symbol is None:
-                eprint(f"Undefined symbol {expr.local}")
+                eprint(f"Undefined symbol {expr.name}")
                 return None
             if isinstance(symbol, LocalSymbol):
                 return symbol.type
             if isinstance(symbol, Method):
                 return symbol
             else:
-                eprint(f"{expr.local} is not a expression")
+                eprint(f"{expr.name} is not a expression")
                 return None
 
         if isinstance(expr, MemberExpr):

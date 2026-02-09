@@ -24,8 +24,8 @@ class StringExpr(_Expression):
     value: str
 
 @dataclass
-class LocalExpr(_Expression):
-    local: str
+class SymbolExpr(_Expression):
+    name: str
 
 @dataclass
 class MemberExpr(_Expression):
