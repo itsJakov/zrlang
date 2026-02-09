@@ -235,7 +235,12 @@ class SemanticAnalyzer:
                 if method_type is not None:
                     return method_type
 
-                eprint(f"Undefined member {expr.member} on class {cls.name}")
+                if target_type.cls == StandardTypes.OBJECT_CLASS:
+                    # Just like Objective-C >:)
+                    print(f"warning: Accessing undefined method {expr.member} on Object, assuming it returns Object")
+                    return FunctionType(param_types=[], return_type=ObjectType(cls=StandardTypes.OBJECT_CLASS))
+
+                eprint(f"Undefined member {expr.member} on class {target_type.cls.name}")
                 return None
 
             eprint(f"Member access not supported on type {type(target_type).__name__}")
@@ -243,8 +248,6 @@ class SemanticAnalyzer:
 
         if isinstance(expr, CallExpr):
             callee_type = self._analyze_expression(expr.callee)
-            if callee_type is None:
-                return None
 
             if isinstance(callee_type, FunctionType):
                 # TODO: Type check arguments
