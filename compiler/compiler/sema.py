@@ -101,6 +101,8 @@ class Scope:
         scope.define(StandardTypes.ARRAY_CLASS)
         scope.define(StandardTypes.OBJECT_CLASS)
         scope.define(StandardTypes.PRINT_FUNCTION)
+
+        scope.define(Class(name="User", fields={"username": ObjectType(cls=StandardTypes.STRING_CLASS)}))
         return scope
 
 
@@ -121,16 +123,16 @@ class SemanticAnalyzer:
 
     def analyze(self, ast: list[ClassDecl]) -> bool:
         # Pass 1: Collect class information
-        for cls in ast:
-            self._collect_class_info(cls)
+        for cls_decl in ast:
+            self._collect_class_info(cls_decl)
 
         # Pass 2: Verify class hierarchies
 
         # Pass 3: Verify methods
-        for cls in ast:
-            for member in cls.members:
+        for cls_decl in ast:
+            for member in cls_decl.members:
                 if isinstance(member, MethodDecl):
-                    self._analyze_method(member)
+                    self._analyze_method(cls_decl, member)
 
         return True
 
@@ -165,9 +167,15 @@ class SemanticAnalyzer:
         self._error(f"Unknown type: {type_name}")
         return VoidType()
 
-    def _analyze_method(self, method: MethodDecl):
+    def _analyze_method(self, cls_decl: ClassDecl, method: MethodDecl):
         self.push_scope()
         # TODO: Add parameters to scope
+        cls = self.scope.lookup(cls_decl.name)
+        if not isinstance(cls, Class):
+            eprint("internal error: method's class not found in scope")
+            sys.exit(1)
+
+        self.scope.define(VariableSymbol(name="self", type=ObjectType(cls=cls)))
         self._analyze_block(method.block)
         self.pop_scope()
 
