@@ -136,6 +136,7 @@ class MethodParam(_Ast):
 class MethodDecl(_Ast):
     name: str
     params: list[MethodParam]
+    return_type: Optional[str]
     block: list[_Statement]
 
 class ToAst(Transformer):
@@ -149,6 +150,10 @@ class ToAst(Transformer):
     def method_params(self, l: list[MethodParam]) -> list[MethodParam]:
         if l[0] is None: return []
         return l
+
+    def method_return(self, l: list[str]) -> Optional[str]:
+        if len(l) <= 0: return None
+        return l[0]
 
     def class_body(self, l: list[_ClassMember]) -> list[_ClassMember]:
         return l

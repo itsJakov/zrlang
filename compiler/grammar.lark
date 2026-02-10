@@ -5,9 +5,10 @@ class_body: class_member*
 ?class_member: class_field | method_decl
 class_field: "var" CNAME ":" CNAME _END
 
-method_decl: "func" CNAME "(" method_params ")" block
+method_decl: "func" CNAME "(" method_params ")" [method_return] block
 method_params: [method_param ("," method_param)*]
 method_param: CNAME ":" CNAME
+method_return: "->" CNAME
 
 block: "{" statement* "}"
 ?statement: return_stmt | var_stmt | expr_stmt | assign_stmt | if_stmt

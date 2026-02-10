@@ -86,7 +86,11 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
 def compile_block(f, block: list[_Statement], unit_ctx: UnitContext) -> bool:
     for stmt in block:
         if isinstance(stmt, ReturnStmt):
-            f.write(f"\tret\n")
+            if stmt.expr is not None:
+                value_sym = expr_into_local(f, stmt.expr, unit_ctx)
+                f.write(f"\tret {value_sym}\n")
+            else:
+                f.write(f"\tret\n")
             return True
 
         elif isinstance(stmt, VarStmt):

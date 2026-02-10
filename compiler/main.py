@@ -7,22 +7,16 @@ from lang_ast import parse
 
 INPUT = """
 class Logger {
-    func doSomething() {
-        if 1 > 0 {
-            print("meow")
-            return
-            print("never")
+    func isEven(x: Int) -> Bool {
+        if x < 0 {
+            print("treating negative number as 0, which is even")
+            return 0 != 0
         }
-        if (new Array).getIsEmpty() {
-            print("expected")
-            return
-        }
-        return
-        print("meow")
+        return x % 2 == 0
     }
 
     func log(level: Int, msg: String) {
-        if level % 2 == 0 {
+        if self.isEven(level) {
             self.logToStdout(level, msg)
         }
         self.logToFile(level, msg)
