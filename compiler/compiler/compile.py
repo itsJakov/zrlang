@@ -91,7 +91,6 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
                 expr_into_local(f, stmt.expr, unit_ctx, local=stmt.local)
 
         elif isinstance(stmt, ExprStmt):
-            # TODO: Should all expressions be allowed as statements?
             expr_into_local(f, stmt.expr, unit_ctx)
 
         elif isinstance(stmt, AssignStmt):
@@ -149,20 +148,22 @@ def compile_method(f, method: MethodDecl, cls: ClassDecl, unit_ctx: UnitContext)
     f.write("\tret\n")
     f.write("}\n")
 
-# TODO: Clang throws a tantrum if _fields or _instanceMethods are empty
 def compile_cls(f, cls: ClassDecl, unit_ctx: UnitContext):
     f.write(f"# ==== \"{cls.name}\" Class Definition ==== \n")
+
     fields: list[ClassField] = list(filter(lambda x: isinstance(x, ClassField), cls.members))
-    f.write(f"data ${cls.name}_fields = {{\n")
-    for field in fields:
-        f.write(f"\tl {unit_ctx.string_sym(field.name)}, l 0,\n")
-    f.write("}\n")
+    if fields:
+        f.write(f"data ${cls.name}_fields = {{\n")
+        for field in fields:
+            f.write(f"\tl {unit_ctx.string_sym(field.name)}, l 0,\n")
+        f.write("}\n")
 
     methods: list[MethodDecl] = list(filter(lambda x: isinstance(x, MethodDecl), cls.members))
-    f.write(f"data ${cls.name}_instanceMethods = {{\n")
-    for method in methods:
-        f.write(f"\tl {unit_ctx.string_sym(method.name)}, l ${cls.name}_{method.name},\n")
-    f.write("}\n")
+    if methods:
+        f.write(f"data ${cls.name}_instanceMethods = {{\n")
+        for method in methods:
+            f.write(f"\tl {unit_ctx.string_sym(method.name)}, l ${cls.name}_{method.name},\n")
+        f.write("}\n")
 
     f.write(f"export data ${cls.name} = {{\n")
     f.write(f"\tl {unit_ctx.string_sym(cls.name)},\n")
@@ -170,9 +171,18 @@ def compile_cls(f, cls: ClassDecl, unit_ctx: UnitContext):
         f.write(f"\tl 0,\n")
     else:
         f.write(f"\tl ${cls.super},\n")
-    f.write(f"\tl {len(fields)}, l ${cls.name}_fields,\n")
-    f.write(f"\tl 0, l 0,\n")
-    f.write(f"\tl {len(methods)}, l ${cls.name}_instanceMethods\n")
+
+    if fields:
+        f.write(f"\tl {len(fields)}, l ${cls.name}_fields,\n")
+    else:
+        f.write(f"\tl 0, l 0,\n")
+
+    f.write(f"\tl 0, l 0,\n") # Static Methods not supported yet
+
+    if methods:
+        f.write(f"\tl {len(methods)}, l ${cls.name}_instanceMethods\n")
+    else:
+        f.write(f"\tl 0, l 0\n")
     f.write("}\n\n")
 
     f.write(f"# ==== \"{cls.name}\" Methods ==== \n")
