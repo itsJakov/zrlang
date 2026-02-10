@@ -3,7 +3,7 @@ from typing import Optional, NoReturn
 
 from compiler.unit_context import UnitContext
 from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, SymbolExpr, AllocExpr, CallExpr, \
-    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt, BinaryOperation, BinaryExpr, ExprStmt
+    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt, BinaryOperation, BinaryExpr, ExprStmt, ReturnStmt
 
 depth = 0 # TODO
 if_index = 0 # TODO
@@ -82,9 +82,14 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
     else:
         fatal_error(f"Expression '{expr}' is unknown")
 
-def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
+# Returns True if the block contains a return statement
+def compile_block(f, block: list[_Statement], unit_ctx: UnitContext) -> bool:
     for stmt in block:
-        if isinstance(stmt, VarStmt):
+        if isinstance(stmt, ReturnStmt):
+            f.write(f"\tret\n")
+            return True
+
+        elif isinstance(stmt, VarStmt):
             if stmt.expr is None:
                 f.write(f"\t%{stmt.local} =l copy 0\n")
             elif isinstance(stmt.expr, IntExpr):
@@ -130,8 +135,11 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
             f.write(f"\tjnz {expr_into_local(f, stmt.condition, unit_ctx)}, {true_label}, {false_label}\n")
 
             f.write(f"{true_label}\n")
-            compile_block(f, stmt.block, unit_ctx)
-            if stmt.else_block is not None:
+            returns = compile_block(f, stmt.block, unit_ctx)
+            if (stmt.else_block is not None) and (not returns):
+                # A jump is needed if
+                # 1. There is an else block, otherwise we can fallthrough to the end
+                # 2. The if block doesn't already return, because QBE doesn't allow unreachable code after a ret
                 f.write(f"\tjmp {end_label}\n")
 
             if stmt.else_block is not None:
@@ -143,13 +151,16 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
         else:
             fatal_error(f"Statement '{stmt}' is unknown")
 
+    return False
+
 def compile_method(f, method: MethodDecl, cls: ClassDecl, unit_ctx: UnitContext):
     params = ", ".join(f"l %{param.name}" for param in method.params)
 
     f.write(f"function l ${cls.name}_{method.name}(l %self, {params}) {{\n")
     f.write("@start\n")
-    compile_block(f, method.block, unit_ctx)
-    f.write("\tret\n")
+    returns = compile_block(f, method.block, unit_ctx)
+    if not returns:
+        f.write("\tret\n") # QBE requires all paths to return
     f.write("}\n")
 
 def compile_cls(f, cls: ClassDecl, unit_ctx: UnitContext):

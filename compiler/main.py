@@ -7,6 +7,20 @@ from lang_ast import parse
 
 INPUT = """
 class Logger {
+    func doSomething() {
+        if 1 > 0 {
+            print("meow")
+            return
+            print("never")
+        }
+        if (new Array).getIsEmpty() {
+            print("expected")
+            return
+        }
+        return
+        print("meow")
+    }
+
     func log(level: Int, msg: String) {
         if level % 2 == 0 {
             self.logToStdout(level, msg)

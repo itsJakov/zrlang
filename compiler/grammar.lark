@@ -10,7 +10,8 @@ method_params: [method_param ("," method_param)*]
 method_param: CNAME ":" CNAME
 
 block: "{" statement* "}"
-?statement: var_stmt | expr_stmt | assign_stmt | if_stmt
+?statement: return_stmt | var_stmt | expr_stmt | assign_stmt | if_stmt
+return_stmt: "return" [expr] _END
 var_stmt: "var" CNAME ["=" expr] _END
 expr_stmt: expr _END
 assign_stmt: lvalue "=" expr _END

@@ -88,6 +88,10 @@ class _Statement(_Ast):
     pass
 
 @dataclass
+class ReturnStmt(_Statement):
+    expr: Optional[_Expression]
+
+@dataclass
 class VarStmt(_Statement):
     local: str
     expr: Optional[_Expression]
