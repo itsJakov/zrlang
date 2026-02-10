@@ -274,7 +274,7 @@ class SemanticAnalyzer:
                 return None
 
             match expr.op:
-                case BinaryOperation.ADD | BinaryOperation.SUB | BinaryOperation.MUL | BinaryOperation.DIV:
+                case BinaryOperation.ADD | BinaryOperation.SUB | BinaryOperation.MUL | BinaryOperation.DIV | BinaryOperation.MOD:
                     if isinstance(lhs_type, IntType):
                         return IntType()
                     else:

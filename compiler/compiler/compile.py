@@ -64,6 +64,7 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
             case BinaryOperation.SUB: keyword = "sub"
             case BinaryOperation.MUL: keyword = "mul"
             case BinaryOperation.DIV: keyword = "div"
+            case BinaryOperation.MOD: keyword = "rem"
             case BinaryOperation.EQ: keyword = "ceql"
             case BinaryOperation.NEQ: keyword = "cnel"
             case BinaryOperation.GT: keyword = "csgtl"

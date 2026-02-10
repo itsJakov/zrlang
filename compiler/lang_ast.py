@@ -54,6 +54,7 @@ class BinaryOperation(Enum):
     SUB = "-"
     MUL = "*"
     DIV = "/"
+    MOD = "%"
     # Logical
     AND = "&&"
     OR = "||"

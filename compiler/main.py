@@ -10,20 +10,18 @@ class QBEUser : RootObject {
     var username: String
     
     func doSomething() {
-        var user = new QBEUser
-        user.username = "test"
+        var x = 16
         
-        var array = new Array
-        array.append(user)
-        
-        if array.getIsEmpty() {
-            print("Array is empty")
+        if x % 2 == 0 {
+            print("Even")
+            if x >= 10 {
+                print("Two or more digits!")
+            } else {
+                print("Only one digit, though!")
+            }
         } else {
-            print("Array is not empty")
-            array.get(0).toString().printToStdout()
+            print("Odd")
         }
-            
-        print("Method End")
     }
 }
 """

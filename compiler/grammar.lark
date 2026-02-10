@@ -40,6 +40,7 @@ if_stmt: "if" expr block ["else" block]
 ?multiplicative: unary
     | multiplicative MUL unary -> binary_expr
     | multiplicative DIV unary -> binary_expr
+    | multiplicative MOD unary -> binary_expr
 
 ?unary: postfix
     | NOT unary -> unary_expr
@@ -80,6 +81,7 @@ ADD: "+"
 SUB: "-"
 MUL: "*"
 DIV: "/"
+MOD: "%"
 NOT: "!"
 
 _END: WS_INLINE? (NEWLINE | ";")
