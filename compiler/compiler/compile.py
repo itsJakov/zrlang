@@ -1,5 +1,5 @@
 import sys
-from typing import Optional
+from typing import Optional, NoReturn
 
 from compiler.unit_context import UnitContext
 from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, SymbolExpr, AllocExpr, CallExpr, \
@@ -7,6 +7,9 @@ from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, Int
 
 depth = 0 # TODO
 if_index = 0 # TODO
+
+def fatal_error(msg: str) -> NoReturn:
+    sys.exit(f"internal error: {msg}\nThis is a bug in the compiler, semantic analysis should've caught this!")
 
 def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optional[str] = None) -> str:
     def get_temp_sym() -> str: # TODO: This should be part of FunctionContext
@@ -47,14 +50,14 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
             f.write(f"\t{temp} =l call %_fn(l {sym}, {args})\n")
             return temp
         else:
-            sys.exit(f"Not a callable stmt {call.callee}!")
+            fatal_error(f"Statement '{call.callee}' is not callable")
     elif isinstance(expr, AllocExpr):
         temp = get_temp_sym()
         f.write(f"\t{temp} =l call $zre_alloc(l ${expr.cls_name})\n")
         return temp
     elif isinstance(expr, BinaryExpr):
         if expr.op == BinaryOperation.AND or expr.op == BinaryOperation.OR:
-            sys.exit(f"Logical operators not supported yet!")
+            fatal_error(f"Logical operators AND and OR are not implemented")
 
         lhs = expr_into_local(f, expr.lhs, unit_ctx)
         rhs = expr_into_local(f, expr.rhs, unit_ctx)
@@ -71,12 +74,13 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
             case BinaryOperation.GTE: keyword = "csgel"
             case BinaryOperation.LT: keyword = "csltl"
             case BinaryOperation.LTE: keyword = "cslel"
+            case _: fatal_error(f"Unknown binary operation: {expr.op}")
 
         temp = get_temp_sym()
         f.write(f"\t{temp} =l {keyword} {lhs}, {rhs}\n")
         return temp
     else:
-        sys.exit(f"Unsupported expr {expr}")
+        fatal_error(f"Expression '{expr}' is unknown")
 
 def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
     for stmt in block:
@@ -109,7 +113,7 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
                 f.write(f"\t%_str =l add $strings, {unit_ctx.string_offset(field_name)}\n")
                 f.write(f"\tcall $zre_field_set(l {instance_sym}, l %_str, l {value_sym})\n")
             else:
-                sys.exit(f"Not an assignable expression! {stmt.assignee}")
+                fatal_error(f"Expression '{stmt.assignee}' is not a valid assignable expression")
 
         elif isinstance(stmt, IfStmt):
             global if_index
@@ -137,7 +141,7 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
             f.write(f"{end_label}\n")
 
         else:
-            sys.exit(f"Statement not supported yet {stmt}")
+            fatal_error(f"Statement '{stmt}' is unknown")
 
 def compile_method(f, method: MethodDecl, cls: ClassDecl, unit_ctx: UnitContext):
     params = ", ".join(f"l %{param.name}" for param in method.params)
