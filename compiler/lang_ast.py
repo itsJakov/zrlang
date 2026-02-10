@@ -18,6 +18,10 @@ class _Expression(_Ast):
     pass
 
 @dataclass
+class BoolExpr(_Expression):
+    value: bool
+
+@dataclass
 class IntExpr(_Expression):
     value: int
 
@@ -157,6 +161,12 @@ class ToAst(Transformer):
 
     def class_body(self, l: list[_ClassMember]) -> list[_ClassMember]:
         return l
+
+    def TRUE(self, t: Token) -> bool:
+        return True
+
+    def FALSE(self, t: Token) -> bool:
+        return False
 
     def SIGNED_NUMBER(self, t: Token) -> int:
         return int(t.value)

@@ -10,13 +10,20 @@ class Logger {
     func isEven(x: Int) -> Bool {
         if x < 0 {
             print("treating negative number as 0, which is even")
-            return 0 != 0
+            return true
         }
         return x % 2 == 0
     }
 
+    func shouldLog(level: Int) -> Bool {
+        if level < 5 {
+            return false
+        }
+        return self.isEven(level)
+    }
+
     func log(level: Int, msg: String) {
-        if self.isEven(level) {
+        if self.shouldLog(level) {
             self.logToStdout(level, msg)
         }
         self.logToFile(level, msg)

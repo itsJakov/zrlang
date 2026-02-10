@@ -3,7 +3,8 @@ from typing import Optional, NoReturn
 
 from compiler.unit_context import UnitContext
 from lang_ast import ClassDecl, ClassField, MethodDecl, VarStmt, _Statement, IntExpr, SymbolExpr, AllocExpr, CallExpr, \
-    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt, BinaryOperation, BinaryExpr, ExprStmt, ReturnStmt
+    MemberExpr, _Expression, CallExpr, StringExpr, AssignStmt, IfStmt, BinaryOperation, BinaryExpr, ExprStmt, \
+    ReturnStmt, BoolExpr
 
 depth = 0 # TODO
 if_index = 0 # TODO
@@ -19,9 +20,11 @@ def expr_into_local(f, expr: _Expression, unit_ctx: UnitContext, *, local: Optio
         depth += 1
         return sym
 
-    if isinstance(expr, IntExpr):
+    if isinstance(expr, BoolExpr):
+        return "1" if expr.value else "0"
+    elif isinstance(expr, IntExpr):
         return f"{expr.value}"
-    if isinstance(expr, StringExpr):
+    elif isinstance(expr, StringExpr):
         temp = get_temp_sym()
         f.write(f"\t{temp} =l add $strings, {unit_ctx.string_offset(expr.value)}\n")
         return temp

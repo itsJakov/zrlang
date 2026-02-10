@@ -55,7 +55,8 @@ if_stmt: "if" expr block ["else" block]
     | member_expr
     | call_expr
 
-?primary: int_expr
+?primary: bool_expr
+    | int_expr
     | string_expr
     | symbol_expr
     | alloc_expr
@@ -64,6 +65,7 @@ if_stmt: "if" expr block ["else" block]
 ?lvalue: symbol_expr
     | member_expr
 
+bool_expr: TRUE | FALSE
 int_expr: SIGNED_NUMBER
 string_expr: ESCAPED_STRING
 symbol_expr: CNAME
@@ -87,6 +89,9 @@ MUL: "*"
 DIV: "/"
 MOD: "%"
 NOT: "!"
+
+TRUE: "true"
+FALSE: "false"
 
 _END: WS_INLINE? (NEWLINE | ";")
 

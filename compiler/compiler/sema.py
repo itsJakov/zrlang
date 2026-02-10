@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 from lang_ast import ClassDecl, ClassField, MethodDecl, _Expression, IntExpr, StringExpr, SymbolExpr, MemberExpr, \
     CallExpr, BinaryExpr, BinaryOperation, _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr, _Ast, \
-    ReturnStmt
+    ReturnStmt, BoolExpr
 
 
 def eprint(*args, **kwargs):
@@ -256,6 +256,9 @@ class SemanticAnalyzer:
                 self._analyze_block(stmt.else_block)
 
     def _analyze_expression(self, expr: _Expression) -> Optional[Type]:
+        if isinstance(expr, BoolExpr):
+            return BoolType()
+
         if isinstance(expr, IntExpr):
             return IntType()
 
