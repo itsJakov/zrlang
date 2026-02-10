@@ -284,15 +284,23 @@ class SemanticAnalyzer:
         if isinstance(expr, CallExpr):
             callee_type = self._analyze_expression(expr.callee)
 
-            # TODO: Type check arguments against parameter types
+            arg_types = []
             for arg in expr.args:
-                self._analyze_expression(arg)
+                arg_type = self._analyze_expression(arg)
+                arg_types.append(arg_type)
 
             if callee_type is None:
                 # Analyze the arguments to report any errors in them, but don't complain about invalid callee
                 return None
 
             if isinstance(callee_type, FunctionType):
+                if len(arg_types) != len(callee_type.param_types):
+                    self._error(f"Function expects {len(callee_type.param_types)} argument(s), but {len(arg_types)} were provided", expr)
+                else:
+                    for i, (arg_type, param_type) in enumerate(zip(arg_types, callee_type.param_types)):
+                        if arg_type is not None and arg_type != param_type:
+                            self._error(f"Argument {i + 1} type mismatch: expected {type(param_type).__name__}, got {type(arg_type).__name__}", expr)
+
                 return callee_type.return_type
 
             self._error(f"Attempting to call non-callable type {type(callee_type).__name__}", expr)

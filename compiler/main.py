@@ -9,9 +9,9 @@ INPUT = """
 class Logger {
     func log(level: Int, msg: String) {
         if level % 2 == 0 {
-            self.logToFile(level, msg)
             self.logToStdout(level, msg)
         }
+        self.logToFile(level, msg)
     }
     
     func logToFile(level: Int, msg: String) {
