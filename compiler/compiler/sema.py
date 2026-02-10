@@ -163,7 +163,8 @@ class SemanticAnalyzer:
                 field_type = self._resolve_type_name(member.type, member)
                 class_obj.fields[member.name] = field_type
             elif isinstance(member, MethodDecl):
-                method_type = FunctionType(param_types=[], return_type=VoidType())
+                param_types = [self._resolve_type_name(param.type) for param in member.params]
+                method_type = FunctionType(param_types, return_type=VoidType())
                 class_obj.methods[member.name] = method_type
             else:
                 self._error(f"Unknown class member type: {type(member)}", member)
@@ -188,11 +189,15 @@ class SemanticAnalyzer:
 
     def _analyze_method(self, cls_decl: ClassDecl, method: MethodDecl):
         self.push_scope()
-        # TODO: Add parameters to scope
         cls = self.scope.lookup(cls_decl.name)
         if not isinstance(cls, Class):
             self._error("internal error: method's class not found in scope", method)
             sys.exit(1)
+
+        # This work seems duplicated from _collect_class_info
+        # Should find better way to marry AST and semantic info
+        for param in method.params:
+            self.scope.define(VariableSymbol(name=param.name, type=self._resolve_type_name(param.type, param)))
 
         self.scope.define(VariableSymbol(name="self", type=ObjectType(cls=cls)))
         self._analyze_block(method.block)
