@@ -74,7 +74,7 @@ class StandardTypes:
         }
     )
 
-    PRINT_FUNCTION = FunctionSymbol(name="print", type=FunctionType(param_types=[], return_type=VoidType()))
+    PRINT_FUNCTION = FunctionSymbol(name="print", type=FunctionType(param_types=[ObjectType(cls=STRING_CLASS)], return_type=VoidType()))
 
 class Scope:
     def __init__(self, parent: Optional['Scope'] = None):
