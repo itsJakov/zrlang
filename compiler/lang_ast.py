@@ -5,11 +5,13 @@ from pathlib import Path
 from typing import Optional
 
 from lark import Lark, ast_utils, Transformer, Token
+from lark.tree import Meta
 
 this_module = sys.modules[__name__]
 
-class _Ast(ast_utils.Ast):
-    pass
+@dataclass
+class _Ast(ast_utils.Ast, ast_utils.WithMeta):
+    meta: Meta
 
 # Expressions
 class _Expression(_Ast):
@@ -65,7 +67,8 @@ class BinaryExpr(_Expression):
     op: BinaryOperation
     rhs: _Expression
 
-    def __init__(self, lhs: _Expression, op: Token, rhs: _Expression):
+    def __init__(self, meta: Meta, lhs: _Expression, op: Token, rhs: _Expression):
+        super().__init__(meta)
         self.lhs = lhs
         self.op = BinaryOperation(op.value)
         self.rhs = rhs
@@ -148,7 +151,7 @@ class ToAst(Transformer):
     def start(self, class_decls: list[ClassDecl]):
         return class_decls
 
-parser = Lark(Path("grammar.lark").read_text(), parser="lalr")
+parser = Lark(Path("grammar.lark").read_text(), parser="lalr", propagate_positions=True)
 transformer = ast_utils.create_transformer(this_module, ToAst())
 
 def parse(text):

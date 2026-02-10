@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Union
 
 from lang_ast import ClassDecl, ClassField, MethodDecl, _Expression, IntExpr, StringExpr, SymbolExpr, MemberExpr, \
-    CallExpr, BinaryExpr, BinaryOperation, _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr
+    CallExpr, BinaryExpr, BinaryOperation, _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr, _Ast
 
 
 def eprint(*args, **kwargs):
@@ -107,8 +107,25 @@ class Scope:
 
 
 class SemanticAnalyzer:
-    def __init__(self):
+    def __init__(self, source_name: str = "<input>"):
         self.scope = Scope.global_scope()
+        self.source_name = source_name
+
+    def _format_location(self, node: Optional[_Ast]) -> str:
+        if node is None or node.meta is None:
+            return f"{self.source_name}:?:?: "
+
+        line = node.meta.line or "?"
+        column = node.meta.column or "?"
+        return f"{self.source_name}:{line}:{column}: "
+
+    def _error(self, message: str, node=None):
+        location = self._format_location(node)
+        eprint(f"{location}error: {message}")
+
+    def _warning(self, message: str, node=None):
+        location = self._format_location(node)
+        eprint(f"{location}warning: {message}")
 
     def push_scope(self) -> Scope:
         new_scope = Scope(parent=self.scope)
@@ -141,18 +158,18 @@ class SemanticAnalyzer:
 
         for member in cls.members:
             if isinstance(member, ClassField):
-                field_type = self._resolve_type_name(member.type)
+                field_type = self._resolve_type_name(member.type, member)
                 class_obj.fields[member.name] = field_type
             elif isinstance(member, MethodDecl):
                 method_type = FunctionType(param_types=[], return_type=VoidType())
                 class_obj.methods[member.name] = method_type
             else:
-                self._error(f"Unknown class member type: {type(member)}")
+                self._error(f"Unknown class member type: {type(member)}", member)
 
         self.scope.define(class_obj)
 
     # TODO: Do this properly
-    def _resolve_type_name(self, type_name: str) -> Type:
+    def _resolve_type_name(self, type_name: str, node=None) -> Type:
         if type_name == "Int":
             return IntType()
         elif type_name == "Bool":
@@ -164,7 +181,7 @@ class SemanticAnalyzer:
         if isinstance(symbol, Class):
             return ObjectType(cls=symbol)
 
-        self._error(f"Unknown type: {type_name}")
+        self._error(f"Unknown type: {type_name}", node)
         return VoidType()
 
     def _analyze_method(self, cls_decl: ClassDecl, method: MethodDecl):
@@ -172,7 +189,7 @@ class SemanticAnalyzer:
         # TODO: Add parameters to scope
         cls = self.scope.lookup(cls_decl.name)
         if not isinstance(cls, Class):
-            eprint("internal error: method's class not found in scope")
+            self._error("internal error: method's class not found in scope", method)
             sys.exit(1)
 
         self.scope.define(VariableSymbol(name="self", type=ObjectType(cls=cls)))
@@ -197,12 +214,12 @@ class SemanticAnalyzer:
             assignee_type = self._analyze_expression(stmt.assignee)
             value_type = self._analyze_expression(stmt.value)
             if assignee_type != value_type:
-                eprint(f"Type mismatch in assignment: {type(assignee_type).__name__} and {type(value_type).__name__}")
+                self._error(f"Type mismatch in assignment: {type(assignee_type).__name__} and {type(value_type).__name__}", stmt)
 
         if isinstance(stmt, IfStmt):
             condition_type = self._analyze_expression(stmt.condition)
             if not isinstance(condition_type, BoolType):
-                eprint(f"If condition must be of type Bool, got {type(condition_type).__name__}")
+                self._error(f"If condition must be of type Bool, got {type(condition_type).__name__}", stmt)
             self._analyze_block(stmt.block)
             if stmt.else_block is not None:
                 self._analyze_block(stmt.else_block)
@@ -217,7 +234,7 @@ class SemanticAnalyzer:
         if isinstance(expr, SymbolExpr):
             symbol = self.scope.lookup(expr.name)
             if symbol is None:
-                eprint(f"Undefined symbol {expr.name}")
+                self._error(f"Undefined symbol {expr.name}", expr)
                 return None
             if isinstance(symbol, VariableSymbol):
                 return symbol.type
@@ -225,9 +242,9 @@ class SemanticAnalyzer:
                 return symbol.type
             if isinstance(symbol, Class):
                 # TODO: Static access (and reflection one day)
-                eprint(f"{expr.name} is a type name, not a value")
+                self._error(f"{expr.name} is a type name, not a value", expr)
                 return None
-            eprint(f"{expr.name} cannot be used as an expression")
+            self._error(f"{expr.name} cannot be used as an expression", expr)
             return None
 
         if isinstance(expr, MemberExpr):
@@ -244,13 +261,13 @@ class SemanticAnalyzer:
 
                 if target_type.cls == StandardTypes.OBJECT_CLASS:
                     # Just like Objective-C >:)
-                    print(f"warning: Accessing undefined method {expr.member} on Object, assuming it returns Object")
+                    self._warning(f"Accessing undefined method {expr.member} on Object, assuming it returns Object", expr)
                     return FunctionType(param_types=[], return_type=ObjectType(cls=StandardTypes.OBJECT_CLASS))
 
-                eprint(f"Undefined member {expr.member} on class {target_type.cls.name}")
+                self._error(f"Undefined member {expr.member} on class {target_type.cls.name}", expr)
                 return None
 
-            eprint(f"Member access not supported on type {type(target_type).__name__}")
+            self._error(f"Member access not supported on type {type(target_type).__name__}", expr)
             return None
 
         if isinstance(expr, CallExpr):
@@ -262,7 +279,7 @@ class SemanticAnalyzer:
                     self._analyze_expression(arg)
                 return callee_type.return_type
 
-            eprint(f"Attempting to call non-callable type {type(callee_type).__name__}")
+            self._error(f"Attempting to call non-callable type {type(callee_type).__name__}", expr)
             return None
 
         if isinstance(expr, BinaryExpr):
@@ -270,7 +287,7 @@ class SemanticAnalyzer:
             rhs_type = self._analyze_expression(expr.rhs)
 
             if type(lhs_type) != type(rhs_type):
-                eprint(f"Type mismatch in binary expression: {type(lhs_type).__name__} and {type(rhs_type).__name__}")
+                self._error(f"Type mismatch in binary expression: {type(lhs_type).__name__} and {type(rhs_type).__name__}", expr)
                 return None
 
             match expr.op:
@@ -278,30 +295,27 @@ class SemanticAnalyzer:
                     if isinstance(lhs_type, IntType):
                         return IntType()
                     else:
-                        eprint(f"Arithmetic operations only supported on Int, got {type(lhs_type).__name__}")
+                        self._error(f"Arithmetic operations only supported on Int, got {type(lhs_type).__name__}", expr)
                         return None
                 case BinaryOperation.EQ | BinaryOperation.NEQ | BinaryOperation.GT | BinaryOperation.GTE | BinaryOperation.LT | BinaryOperation.LTE:
                     if isinstance(lhs_type, IntType):
                         return BoolType()
                     else:
-                        eprint(f"Comparison operations only supported on Int, got {type(lhs_type).__name__}")
+                        self._error(f"Comparison operations only supported on Int, got {type(lhs_type).__name__}", expr)
                         return None
                 case BinaryOperation.AND | BinaryOperation.OR:
-                    eprint(f"Logical operators not supported yet!")
+                    self._error(f"Logical operators not supported yet!", expr)
                     return None
 
         if isinstance(expr, AllocExpr):
             class_symbol = self.scope.lookup(expr.cls_name)
             if class_symbol is None:
-                eprint(f"Undefined class {expr.cls_name}")
+                self._error(f"Undefined class {expr.cls_name}", expr)
                 return None
             if not isinstance(class_symbol, Class):
-                eprint(f"{expr.cls_name} is not a class")
+                self._error(f"{expr.cls_name} is not a class", expr)
                 return None
             return ObjectType(cls=class_symbol)
 
-        eprint(f"Unknown expression type: {type(expr).__name__}")
+        self._error(f"Unknown expression type: {type(expr).__name__}", expr)
         return None
-
-    def _error(self, message: str):
-        eprint(f"Semantic error: {message}")
