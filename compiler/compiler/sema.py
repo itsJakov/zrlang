@@ -3,7 +3,8 @@ from dataclasses import dataclass, field
 from typing import Optional, Union
 
 from lang_ast import ClassDecl, ClassField, MethodDecl, _Expression, IntExpr, StringExpr, SymbolExpr, MemberExpr, \
-    CallExpr, BinaryExpr, BinaryOperation, _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr, _Ast
+    CallExpr, BinaryExpr, BinaryOperation, _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr, _Ast, \
+    ReturnStmt
 
 
 def eprint(*args, **kwargs):
@@ -80,6 +81,7 @@ class Scope:
     def __init__(self, parent: Optional['Scope'] = None):
         self.parent: Optional[Scope] = parent
         self.symbols: dict[str, Symbol] = {}
+        self.return_type: Optional[Type] = None
 
     def define(self, symbol: Symbol):
         if symbol.name in self.symbols:
@@ -131,6 +133,8 @@ class SemanticAnalyzer:
 
     def push_scope(self) -> Scope:
         new_scope = Scope(parent=self.scope)
+        # TODO: Probably should find a better way to handle return/break/continue scopes
+        new_scope.return_type = self.scope.return_type
         self.scope = new_scope
         return new_scope
 
@@ -164,7 +168,10 @@ class SemanticAnalyzer:
                 class_obj.fields[member.name] = field_type
             elif isinstance(member, MethodDecl):
                 param_types = [self._resolve_type_name(param.type) for param in member.params]
-                method_type = FunctionType(param_types, return_type=VoidType())
+                return_type = VoidType()
+                if member.return_type is not None:
+                    return_type = self._resolve_type_name(member.return_type, member)
+                method_type = FunctionType(param_types, return_type)
                 class_obj.methods[member.name] = method_type
             else:
                 self._error(f"Unknown class member type: {type(member)}", member)
@@ -194,18 +201,33 @@ class SemanticAnalyzer:
             self._error("internal error: method's class not found in scope", method)
             sys.exit(1)
 
+        self.scope.define(VariableSymbol(name="self", type=ObjectType(cls=cls)))
+
         # This work seems duplicated from _collect_class_info
         # Should find better way to marry AST and semantic info
         for param in method.params:
             self.scope.define(VariableSymbol(name=param.name, type=self._resolve_type_name(param.type, param)))
 
-        self.scope.define(VariableSymbol(name="self", type=ObjectType(cls=cls)))
+        # Same goes for this codeblock
+        if method.return_type is not None:
+            self.scope.return_type = self._resolve_type_name(method.return_type, method)
+        else:
+            self.scope.return_type = VoidType()
+
         self._analyze_block(method.block)
         self.pop_scope()
 
     def _analyze_block(self, block: list[_Statement]):
         self.push_scope()
         for stmt in block:
+            if isinstance(stmt, ReturnStmt):
+                value_type = VoidType()
+                if stmt.expr is not None:
+                    value_type = self._analyze_expression(stmt.expr)
+
+                if value_type is not None and value_type != self.scope.return_type:
+                    self._error(f"Return type mismatch: expected {type(self.scope.return_type).__name__}, got {type(value_type).__name__}", stmt)
+                continue
             self._analyze_statement(stmt)
         self.pop_scope()
 
