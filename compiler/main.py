@@ -29,7 +29,8 @@ class QBEUser : RootObject {
 if __name__ == "__main__":
     result = parse(INPUT)
 
-    SemanticAnalyzer().analyze(result)
+    if not SemanticAnalyzer().analyze(result):
+        sys.exit("Compilation failed due to semantic errors!")
 
     with open("ir.ssa", "w") as f:
         compile_ir(f, result)

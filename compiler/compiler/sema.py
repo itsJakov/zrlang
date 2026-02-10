@@ -110,6 +110,7 @@ class SemanticAnalyzer:
     def __init__(self, source_name: str = "<input>"):
         self.scope = Scope.global_scope()
         self.source_name = source_name
+        self.error_count = 0
 
     def _format_location(self, node: Optional[_Ast]) -> str:
         if node is None or node.meta is None:
@@ -120,6 +121,7 @@ class SemanticAnalyzer:
         return f"{self.source_name}:{line}:{column}: "
 
     def _error(self, message: str, node=None):
+        self.error_count += 1
         location = self._format_location(node)
         eprint(f"{location}error: {message}")
 
@@ -151,7 +153,7 @@ class SemanticAnalyzer:
                 if isinstance(member, MethodDecl):
                     self._analyze_method(cls_decl, member)
 
-        return True
+        return self.error_count == 0
 
     def _collect_class_info(self, cls: ClassDecl):
         class_obj = Class(name=cls.name)
