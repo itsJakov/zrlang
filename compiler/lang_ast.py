@@ -124,8 +124,14 @@ class ClassDecl(_Ast):
 
 # Method / Function
 @dataclass
+class MethodParam(_Ast):
+    name: str
+    type: str
+
+@dataclass
 class MethodDecl(_Ast):
     name: str
+    params: list[MethodParam]
     block: list[_Statement]
 
 class ToAst(Transformer):
@@ -134,6 +140,10 @@ class ToAst(Transformer):
 
     def call_args(self, l: list[_Expression]) -> list[_Expression]:
         if l[0] is None: return [] # Lark behaviour I don't feel like thinking about
+        return l
+
+    def method_params(self, l: list[MethodParam]) -> list[MethodParam]:
+        if l[0] is None: return []
         return l
 
     def class_body(self, l: list[_ClassMember]) -> list[_ClassMember]:

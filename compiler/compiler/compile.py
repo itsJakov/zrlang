@@ -141,7 +141,9 @@ def compile_block(f, block: list[_Statement], unit_ctx: UnitContext):
             sys.exit(f"Statement not supported yet {stmt}")
 
 def compile_method(f, method: MethodDecl, cls: ClassDecl, unit_ctx: UnitContext):
-    f.write(f"function l ${cls.name}_{method.name}(l %self) {{\n")
+    params = ", ".join(f"l %{param.name}" for param in method.params)
+
+    f.write(f"function l ${cls.name}_{method.name}(l %self, {params}) {{\n")
     f.write("@start\n")
     compile_block(f, method.block, unit_ctx)
     f.write("\tret\n")

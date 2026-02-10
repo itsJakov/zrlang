@@ -6,14 +6,20 @@ from compiler.sema import SemanticAnalyzer
 from lang_ast import parse
 
 INPUT = """
-class QBEUser : RootObject {
-    var username: String
-    
-    func doSomething() {
-        if 1 + 1 {
-            var array = new Array
-            self.doNesto(meow)
+class Logger {
+    func log(level: Int, msg: String) {
+        if level % 2 == 0 {
+            self.logToFile(level, msg)
+            self.logToStdout(level, msg)
         }
+    }
+    
+    func logToFile(level: Int, msg: String) {
+        
+    }
+    
+    func logToStdout(level: Int, msg: String) {
+        msg.printToStdout()
     }
 }
 """
