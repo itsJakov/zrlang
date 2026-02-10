@@ -215,12 +215,14 @@ class SemanticAnalyzer:
         if isinstance(stmt, AssignStmt):
             assignee_type = self._analyze_expression(stmt.assignee)
             value_type = self._analyze_expression(stmt.value)
+            if assignee_type is None or value_type is None:
+                return
             if assignee_type != value_type:
                 self._error(f"Type mismatch in assignment: {type(assignee_type).__name__} and {type(value_type).__name__}", stmt)
 
         if isinstance(stmt, IfStmt):
             condition_type = self._analyze_expression(stmt.condition)
-            if not isinstance(condition_type, BoolType):
+            if condition_type is not None and not isinstance(condition_type, BoolType):
                 self._error(f"If condition must be of type Bool, got {type(condition_type).__name__}", stmt)
             self._analyze_block(stmt.block)
             if stmt.else_block is not None:
@@ -251,6 +253,8 @@ class SemanticAnalyzer:
 
         if isinstance(expr, MemberExpr):
             target_type = self._analyze_expression(expr.expr)
+            if target_type is None:
+                return None
 
             if isinstance(target_type, ObjectType):
                 field_type = target_type.cls.fields.get(expr.member)
@@ -263,7 +267,7 @@ class SemanticAnalyzer:
 
                 if target_type.cls == StandardTypes.OBJECT_CLASS:
                     # Just like Objective-C >:)
-                    self._warning(f"Accessing undefined method {expr.member} on Object, assuming it returns Object", expr)
+                    self._warning(f"Accessing unknown method {expr.member} on Object, assuming it returns Object", expr)
                     return FunctionType(param_types=[], return_type=ObjectType(cls=StandardTypes.OBJECT_CLASS))
 
                 self._error(f"Undefined member {expr.member} on class {target_type.cls.name}", expr)
@@ -275,10 +279,15 @@ class SemanticAnalyzer:
         if isinstance(expr, CallExpr):
             callee_type = self._analyze_expression(expr.callee)
 
+            # TODO: Type check arguments against parameter types
+            for arg in expr.args:
+                self._analyze_expression(arg)
+
+            if callee_type is None:
+                # Analyze the arguments to report any errors in them, but don't complain about invalid callee
+                return None
+
             if isinstance(callee_type, FunctionType):
-                # TODO: Type check arguments against parameter types
-                for arg in expr.args:
-                    self._analyze_expression(arg)
                 return callee_type.return_type
 
             self._error(f"Attempting to call non-callable type {type(callee_type).__name__}", expr)
@@ -287,6 +296,9 @@ class SemanticAnalyzer:
         if isinstance(expr, BinaryExpr):
             lhs_type = self._analyze_expression(expr.lhs)
             rhs_type = self._analyze_expression(expr.rhs)
+
+            if lhs_type is None or rhs_type is None:
+                return None
 
             if type(lhs_type) != type(rhs_type):
                 self._error(f"Type mismatch in binary expression: {type(lhs_type).__name__} and {type(rhs_type).__name__}", expr)

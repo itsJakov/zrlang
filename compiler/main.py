@@ -10,17 +10,9 @@ class QBEUser : RootObject {
     var username: String
     
     func doSomething() {
-        var x = 16
-        
-        if x % 2 == 0 {
-            print("Even")
-            if x >= 10 {
-                print("Two or more digits!")
-            } else {
-                print("Only one digit, though!")
-            }
-        } else {
-            print("Odd")
+        if 1 + 1 {
+            var array = new Array
+            self.doNesto(meow)
         }
     }
 }
