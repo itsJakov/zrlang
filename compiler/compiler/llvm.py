@@ -157,8 +157,12 @@ class LLVMIRGenerator:
 
         elif isinstance(expr, SymbolExpr):
             symbol = expr.symbol
-            if isinstance(symbol, LocalSymbol) or isinstance(symbol, ParameterSymbol):
+            if isinstance(symbol, ParameterSymbol):
                 return f"%{symbol.name}"
+            if isinstance(symbol, LocalSymbol):
+                temp = temp_local()
+                self._emit(f"\t{temp} = load {self._type_to_ir(symbol.type)}, {self._type_to_ir(symbol.type)} %{symbol.name}")
+                return temp
             else:
                 fatal_error(f"Unknown symbol type: {type(symbol)}")
 
