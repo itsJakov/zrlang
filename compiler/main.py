@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-from compiler.compile import compile_ir
+from compiler.llvm import LLVMIRGenerator
 from compiler.sema import SemanticAnalyzer
 from lang_ast import parse
 
@@ -47,10 +47,10 @@ if __name__ == "__main__":
     if not SemanticAnalyzer().analyze(result):
         sys.exit("Compilation failed due to semantic errors!")
 
-    with open("ir.ssa", "w") as f:
-        compile_ir(f, result)
+    with open("ir.ll", "w") as f:
+        f.write(LLVMIRGenerator(result).generate())
 
-    res = subprocess.run(["/bin/bash", "-c", "\"../qbe/qbe\" -o out.s ir.ssa"])
+    res = subprocess.run(["clang", "-Wno-override-module", "-S", "ir.ll", "-o", "out.s"])
     if res.returncode != 0:
         sys.exit("Error in IR")
 

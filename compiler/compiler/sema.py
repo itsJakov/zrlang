@@ -176,11 +176,15 @@ class SemanticAnalyzer:
                 field_type = self._resolve_type_name(member.type, member)
                 class_obj.fields[member.name] = field_type
             elif isinstance(member, MethodDecl):
-                param_types = [self._resolve_type_name(param.type) for param in member.params]
-                return_type = VoidType()
-                if member.return_type is not None:
-                    return_type = self._resolve_type_name(member.return_type, member)
-                method_type = FunctionType(param_types, return_type)
+                for param in member.params:
+                    param.type = self._resolve_type_name(param.type_name, param)
+
+                member.return_type = VoidType()
+                if member.return_type_name is not None:
+                    member.return_type = self._resolve_type_name(member.return_type_name, member)
+
+                method_type = FunctionType(param_types=list([param.type for param in member.params]),
+                                           return_type=member.return_type)
                 class_obj.methods[member.name] = method_type
             else:
                 self._error(f"Unknown class member type: {type(member)}", member)
@@ -212,16 +216,9 @@ class SemanticAnalyzer:
 
         self.scope.define(VariableSymbol(name="self", type=ObjectType(cls=cls)))
 
-        # This work seems duplicated from _collect_class_info
-        # Should find better way to marry AST and semantic info
         for param in method.params:
-            self.scope.define(VariableSymbol(name=param.name, type=self._resolve_type_name(param.type, param)))
-
-        # Same goes for this codeblock
-        if method.return_type is not None:
-            self.scope.return_type = self._resolve_type_name(method.return_type, method)
-        else:
-            self.scope.return_type = VoidType()
+            self.scope.define(VariableSymbol(name=param.name, type=param.type))
+        self.scope.return_type = method.return_type
 
         self._analyze_block(method.block)
         self.pop_scope()
@@ -265,6 +262,10 @@ class SemanticAnalyzer:
                 self._analyze_block(stmt.else_block)
 
     def _analyze_expression(self, expr: _Expression) -> Optional[Type]:
+        expr.type = self._resolve_expression_type(expr)
+        return expr.type
+
+    def _resolve_expression_type(self, expr: _Expression) -> Optional[Type]:
         if isinstance(expr, BoolExpr):
             return BoolType()
 

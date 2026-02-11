@@ -1,5 +1,5 @@
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -14,8 +14,9 @@ class _Ast(ast_utils.Ast, ast_utils.WithMeta):
     meta: Meta
 
 # Expressions
+@dataclass
 class _Expression(_Ast):
-    pass
+   type: 'Type' = field(init=False, default=None)
 
 @dataclass
 class BoolExpr(_Expression):
@@ -134,13 +135,15 @@ class ClassDecl(_Ast):
 @dataclass
 class MethodParam(_Ast):
     name: str
-    type: str
+    type_name: str
+    type: 'Type' = field(init=False, default=None)
 
 @dataclass
 class MethodDecl(_Ast):
     name: str
     params: list[MethodParam]
-    return_type: Optional[str]
+    return_type_name: Optional[str]
+    return_type: 'Type' = field(init=False, default=None)
     block: list[_Statement]
 
 class ToAst(Transformer):
