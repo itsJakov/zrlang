@@ -1,9 +1,9 @@
 import sys
 from typing import Iterable, Optional, NoReturn
 
-from compiler.sema import VoidType, BoolType, IntType, ObjectType, FunctionType
+from compiler.sema import VoidType, BoolType, IntType, ObjectType, FunctionType, LocalSymbol, ParameterSymbol
 from lang_ast import ClassDecl, ClassField, MethodDecl, ReturnStmt, _Statement, IntExpr, _Expression, BoolExpr, \
-    StringExpr, BinaryExpr, BinaryOperation, SymbolExpr, CallExpr, MemberExpr, ExprStmt, IfStmt
+    StringExpr, BinaryExpr, BinaryOperation, SymbolExpr, CallExpr, MemberExpr, ExprStmt, IfStmt, VarStmt, AllocExpr
 
 from .sema import Type
 
@@ -93,6 +93,17 @@ class LLVMIRGenerator:
                     self._emit("\tret i64 0")
                 return True
 
+            # TODO: mem2reg won't be able to optimize this if allocas are not at the start of the function!
+            # Should that be done during semantic analysis or during codegen before emitting statements?
+            elif isinstance(stmt, VarStmt):
+                if stmt.expr is None:
+                    fatal_error("handle uninitialized variables, maybe?")
+                else:
+                    value = self._emit_expr(stmt.expr)
+                    value_type = self._type_to_ir(stmt.expr.type)
+                    self._emit(f"\t%{stmt.local} = alloca {value_type} ; bad!")
+                    self._emit(f"\tstore {value_type} {value}, {value_type} %{stmt.local}")
+
             elif isinstance(stmt, ExprStmt):
                 self._emit_expr(stmt.expr)
 
@@ -139,7 +150,11 @@ class LLVMIRGenerator:
             return f"{self._str_sym(expr.value)}"
 
         elif isinstance(expr, SymbolExpr):
-            return f"%{expr.name}"
+            symbol = expr.symbol
+            if isinstance(symbol, LocalSymbol) or isinstance(symbol, ParameterSymbol):
+                return f"%{symbol.name}"
+            else:
+                fatal_error(f"Unknown symbol type: {type(symbol)}")
 
         elif isinstance(expr, CallExpr):
             call = expr
@@ -169,6 +184,7 @@ class LLVMIRGenerator:
                     return temp
             else:
                 fatal_error(f"Statement '{call.callee}' is not callable")
+
         elif isinstance(expr, BinaryExpr):
             if expr.op == BinaryOperation.AND or expr.op == BinaryOperation.OR:
                 fatal_error(f"Logical operators AND and OR are not implemented")
