@@ -277,6 +277,7 @@ class SemanticAnalyzer:
 
         if isinstance(expr, SymbolExpr):
             symbol = self.scope.lookup(expr.name)
+            expr.symbol = symbol
             if symbol is None:
                 self._error(f"Undefined symbol {expr.name}", expr)
                 return None

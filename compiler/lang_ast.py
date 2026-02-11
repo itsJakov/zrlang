@@ -33,6 +33,7 @@ class StringExpr(_Expression):
 @dataclass
 class SymbolExpr(_Expression):
     name: str
+    symbol: 'Symbol' = field(init=False, default=None)
 
 @dataclass
 class MemberExpr(_Expression):
