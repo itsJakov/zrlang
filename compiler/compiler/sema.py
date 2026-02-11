@@ -38,52 +38,75 @@ class Symbol:
     name: str
 
 @dataclass
-class VariableSymbol(Symbol):
+class LocalSymbol(Symbol):
+    type: Type
+
+@dataclass
+class PropertySymbol(Symbol):
+    type: Type
+
+@dataclass
+class ParameterSymbol(Symbol):
     type: Type
 
 @dataclass
 class FunctionSymbol(Symbol):
-    type: FunctionType
+    params: list[ParameterSymbol]
+    return_type: Type
+
+    def function_type(self) -> FunctionType:
+        return FunctionType(param_types=[param.type for param in self.params], return_type=self.return_type)
 
 @dataclass
 class Class(Symbol):
-    methods: dict[str, FunctionType] = field(default_factory=dict)
-    fields: dict[str, Type] = field(default_factory=dict)
+    symbols: dict[str, FunctionSymbol | PropertySymbol]
     parent: Optional['Class'] = None
+
+    def __init__(self, name: str, symbols: Optional[list[FunctionSymbol | PropertySymbol]] = None):
+        super().__init__(name)
+        self.symbols = {}
+        if symbols:
+            for symbol in symbols:
+                self.symbols[symbol.name] = symbol
+
+    def define(self, symbol: FunctionSymbol | PropertySymbol):
+        if symbol.name in self.symbols:
+            eprint(f"Symbol {symbol.name} already defined in class {self.name}")
+        self.symbols[symbol.name] = symbol
 
 class StandardTypes:
     STRING_CLASS = Class(
         name="String",
-        methods={
-            "printToStdout": FunctionType(param_types=[], return_type=VoidType()),
-        }
+        symbols=[
+            FunctionSymbol(name="printToStdout", params=[], return_type=VoidType())
+        ]
     )
 
     OBJECT_CLASS = Class(
         name="RootObject",
-        methods={
-            "toString": FunctionType(param_types=[], return_type=ObjectType(cls=STRING_CLASS)),
-        }
+        symbols=[
+            FunctionSymbol(name="toString", params=[], return_type=ObjectType(cls=STRING_CLASS))
+        ]
     )
 
     ARRAY_CLASS = Class(
         name="Array",
-        methods={
-            "append": FunctionType(param_types=[], return_type=VoidType()),
-            "get": FunctionType(param_types=[], return_type=ObjectType(cls=OBJECT_CLASS)),
-            "getIsEmpty": FunctionType(param_types=[], return_type=BoolType()),
-        }
+        symbols=[
+            FunctionSymbol(name="append", params=[], return_type=VoidType()),
+            FunctionSymbol(name="get", params=[], return_type=ObjectType(cls=OBJECT_CLASS)),
+            FunctionSymbol(name="getIsEmpty", params=[], return_type=BoolType()),
+        ]
     )
 
     FILE_CLASS = Class(
         name="File",
-        methods={
-            "initWithPath": FunctionType(param_types=[ObjectType(cls=STRING_CLASS)], return_type=VoidType()),
-            "append": FunctionType(param_types=[ObjectType(cls=STRING_CLASS)], return_type=VoidType()),
-        }
+        symbols=[
+            FunctionSymbol(name="initWithPath", params=[ParameterSymbol(name="path", type=ObjectType(cls=STRING_CLASS))], return_type=VoidType()),
+            FunctionSymbol(name="append", params=[ParameterSymbol(name="content", type=ObjectType(cls=STRING_CLASS))], return_type=VoidType()),
+        ]
     )
 
-    PRINT_FUNCTION = FunctionSymbol(name="print", type=FunctionType(param_types=[ObjectType(cls=STRING_CLASS)], return_type=VoidType()))
+    PRINT_FUNCTION = FunctionSymbol(name="print", params=[ParameterSymbol(name="value", type=ObjectType(cls=STRING_CLASS))], return_type=VoidType())
 
 class Scope:
     def __init__(self, parent: Optional['Scope'] = None):
@@ -112,8 +135,6 @@ class Scope:
         scope.define(StandardTypes.OBJECT_CLASS)
         scope.define(StandardTypes.FILE_CLASS)
         scope.define(StandardTypes.PRINT_FUNCTION)
-
-        scope.define(Class(name="User", fields={"username": ObjectType(cls=StandardTypes.STRING_CLASS)}))
         return scope
 
 
@@ -169,27 +190,27 @@ class SemanticAnalyzer:
         return self.error_count == 0
 
     def _collect_class_info(self, cls: ClassDecl):
-        class_obj = Class(name=cls.name)
+        class_sym = Class(name=cls.name)
 
         for member in cls.members:
             if isinstance(member, ClassField):
                 field_type = self._resolve_type_name(member.type, member)
-                class_obj.fields[member.name] = field_type
+                class_sym.define(PropertySymbol(name=member.name, type=field_type))
             elif isinstance(member, MethodDecl):
+                params = []
                 for param in member.params:
                     param.type = self._resolve_type_name(param.type_name, param)
+                    params.append(ParameterSymbol(name=param.name, type=param.type))
 
                 member.return_type = VoidType()
                 if member.return_type_name is not None:
                     member.return_type = self._resolve_type_name(member.return_type_name, member)
 
-                method_type = FunctionType(param_types=list([param.type for param in member.params]),
-                                           return_type=member.return_type)
-                class_obj.methods[member.name] = method_type
+                class_sym.define(FunctionSymbol(name=member.name, params=params, return_type=member.return_type))
             else:
                 self._error(f"Unknown class member type: {type(member)}", member)
 
-        self.scope.define(class_obj)
+        self.scope.define(class_sym)
 
     # TODO: Do this properly
     def _resolve_type_name(self, type_name: str, node=None) -> Type:
@@ -214,10 +235,10 @@ class SemanticAnalyzer:
             self._error("internal error: method's class not found in scope", method)
             sys.exit(1)
 
-        self.scope.define(VariableSymbol(name="self", type=ObjectType(cls=cls)))
+        self.scope.define(ParameterSymbol(name="self", type=ObjectType(cls=cls)))
 
         for param in method.params:
-            self.scope.define(VariableSymbol(name=param.name, type=param.type))
+            self.scope.define(ParameterSymbol(name=param.name, type=param.type))
         self.scope.return_type = method.return_type
 
         self._analyze_block(method.block)
@@ -240,7 +261,7 @@ class SemanticAnalyzer:
     def _analyze_statement(self, stmt: _Statement):
         if isinstance(stmt, VarStmt):
             value_type = self._analyze_expression(stmt.expr)
-            self.scope.define(VariableSymbol(name=stmt.local, type=value_type))
+            self.scope.define(LocalSymbol(name=stmt.local, type=value_type))
 
         if isinstance(stmt, ExprStmt):
             self._analyze_expression(stmt.expr)
@@ -281,10 +302,14 @@ class SemanticAnalyzer:
             if symbol is None:
                 self._error(f"Undefined symbol {expr.name}", expr)
                 return None
-            if isinstance(symbol, VariableSymbol):
+            if isinstance(symbol, LocalSymbol):
+                return symbol.type
+            if isinstance(symbol, ParameterSymbol):
+                return symbol.type
+            if isinstance(symbol, PropertySymbol):
                 return symbol.type
             if isinstance(symbol, FunctionSymbol):
-                return symbol.type
+                return symbol.function_type()
             if isinstance(symbol, Class):
                 # TODO: Static access (and reflection one day)
                 self._error(f"{expr.name} is a type name, not a value", expr)
@@ -298,13 +323,12 @@ class SemanticAnalyzer:
                 return None
 
             if isinstance(target_type, ObjectType):
-                field_type = target_type.cls.fields.get(expr.member)
-                if field_type is not None:
-                    return field_type
-
-                method_type = target_type.cls.methods.get(expr.member)
-                if method_type is not None:
-                    return method_type
+                member_symbol = target_type.cls.symbols.get(expr.member)
+                if member_symbol is not None:
+                    if isinstance(member_symbol, PropertySymbol):
+                        return member_symbol.type
+                    if isinstance(member_symbol, FunctionSymbol):
+                        return member_symbol.function_type()
 
                 if target_type.cls == StandardTypes.OBJECT_CLASS:
                     # Just like Objective-C >:)
