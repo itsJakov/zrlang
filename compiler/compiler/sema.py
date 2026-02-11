@@ -75,6 +75,14 @@ class StandardTypes:
         }
     )
 
+    FILE_CLASS = Class(
+        name="File",
+        methods={
+            "initWithPath": FunctionType(param_types=[ObjectType(cls=STRING_CLASS)], return_type=VoidType()),
+            "append": FunctionType(param_types=[ObjectType(cls=STRING_CLASS)], return_type=VoidType()),
+        }
+    )
+
     PRINT_FUNCTION = FunctionSymbol(name="print", type=FunctionType(param_types=[ObjectType(cls=STRING_CLASS)], return_type=VoidType()))
 
 class Scope:
@@ -102,6 +110,7 @@ class Scope:
         scope.define(StandardTypes.STRING_CLASS)
         scope.define(StandardTypes.ARRAY_CLASS)
         scope.define(StandardTypes.OBJECT_CLASS)
+        scope.define(StandardTypes.FILE_CLASS)
         scope.define(StandardTypes.PRINT_FUNCTION)
 
         scope.define(Class(name="User", fields={"username": ObjectType(cls=StandardTypes.STRING_CLASS)}))

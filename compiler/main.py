@@ -30,7 +30,9 @@ class Logger {
     }
     
     func logToFile(level: Int, msg: String) {
-        
+        var newFile = new File
+        newFile.initWithPath("log.txt")
+        newFile.append(msg)
     }
     
     func logToStdout(level: Int, msg: String) {
