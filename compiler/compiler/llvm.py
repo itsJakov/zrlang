@@ -71,7 +71,7 @@ class LLVMIRGenerator:
         self._emit("\ti64 0, i64 0,")
 
         if methods:
-            self._emit(f"\ti64 0, i64 ptrtoint (ptr @{cls.name}.instanceMethods to i64)")
+            self._emit(f"\ti64 {len(methods)}, i64 ptrtoint (ptr @{cls.name}.instanceMethods to i64)")
         self._emit("]")
 
         if methods:
