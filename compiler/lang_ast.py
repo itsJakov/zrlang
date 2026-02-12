@@ -117,6 +117,10 @@ class IfStmt(_Statement):
     block: list[_Statement]
     else_block: Optional[list[_Statement]]
 
+# Top Level
+class _TopLevelDecl(_Ast):
+    pass
+
 # Class
 class _ClassMember(_Ast):
     pass
@@ -127,22 +131,22 @@ class ClassField(_ClassMember):
     type: str
 
 @dataclass
-class ClassDecl(_Ast):
+class ClassDecl(_TopLevelDecl):
     name: str
     super: Optional[str]
     members: list[_ClassMember]
 
 # Method / Function
 @dataclass
-class MethodParam(_Ast):
+class FuncParam(_Ast):
     name: str
     type_name: str
     type: 'Type' = field(init=False, default=None)
 
 @dataclass
-class MethodDecl(_Ast):
+class FuncDecl(_TopLevelDecl, _ClassMember):
     name: str
-    params: list[MethodParam]
+    params: list[FuncParam]
     return_type_name: Optional[str]
     return_type: 'Type' = field(init=False, default=None)
     block: list[_Statement]
@@ -155,11 +159,11 @@ class ToAst(Transformer):
         if l[0] is None: return [] # Lark behaviour I don't feel like thinking about
         return l
 
-    def method_params(self, l: list[MethodParam]) -> list[MethodParam]:
+    def func_params(self, l: list[FuncParam]) -> list[FuncParam]:
         if l[0] is None: return []
         return l
 
-    def method_return(self, l: list[str]) -> Optional[str]:
+    def func_return(self, l: list[str]) -> Optional[str]:
         if len(l) <= 0: return None
         return l[0]
 

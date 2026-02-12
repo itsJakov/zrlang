@@ -2,9 +2,9 @@ import sys
 from dataclasses import dataclass, field
 from typing import Optional, Union
 
-from lang_ast import ClassDecl, ClassField, MethodDecl, _Expression, IntExpr, StringExpr, SymbolExpr, MemberExpr, \
+from lang_ast import ClassDecl, ClassField, FuncDecl, _Expression, IntExpr, StringExpr, SymbolExpr, MemberExpr, \
     CallExpr, BinaryExpr, BinaryOperation, _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr, _Ast, \
-    ReturnStmt, BoolExpr
+    ReturnStmt, BoolExpr, _TopLevelDecl
 
 
 def eprint(*args, **kwargs):
@@ -174,43 +174,50 @@ class SemanticAnalyzer:
         else:
             raise Exception("Cannot pop global scope")
 
-    def analyze(self, ast: list[ClassDecl]) -> bool:
-        # Pass 1: Collect class information
-        for cls_decl in ast:
-            self._collect_class_info(cls_decl)
+    def analyze(self, ast: list[_TopLevelDecl]) -> bool:
+        # Pass 1: Collect function and class symbols
+        for decl in ast:
+            if isinstance(decl, FuncDecl):
+                self.scope.define(self._function_symbol(decl))
+            elif isinstance(decl, ClassDecl):
+                self.scope.define(self._class_symbol(decl))
 
         # Pass 2: Verify class hierarchies
 
         # Pass 3: Verify methods
-        for cls_decl in ast:
-            for member in cls_decl.members:
-                if isinstance(member, MethodDecl):
-                    self._analyze_method(cls_decl, member)
+        for decl in ast:
+            if isinstance(decl, FuncDecl):
+                self._analyze_function(decl)
+            elif isinstance(decl, ClassDecl):
+                self._analyze_class(decl)
 
         return self.error_count == 0
 
-    def _collect_class_info(self, cls: ClassDecl):
+    def _function_symbol(self, func: FuncDecl) -> FunctionSymbol:
+        params = []
+        for param in func.params:
+            param.type = self._resolve_type_name(param.type_name, param)
+            params.append(ParameterSymbol(name=param.name, type=param.type))
+
+        func.return_type = VoidType()
+        if func.return_type_name is not None:
+            func.return_type = self._resolve_type_name(func.return_type_name, func)
+
+        return FunctionSymbol(name=func.name, params=params, return_type=func.return_type)
+
+    def _class_symbol(self, cls: ClassDecl) -> Class:
         class_sym = Class(name=cls.name)
 
         for member in cls.members:
             if isinstance(member, ClassField):
                 field_type = self._resolve_type_name(member.type, member)
                 class_sym.define(PropertySymbol(name=member.name, type=field_type))
-            elif isinstance(member, MethodDecl):
-                params = []
-                for param in member.params:
-                    param.type = self._resolve_type_name(param.type_name, param)
-                    params.append(ParameterSymbol(name=param.name, type=param.type))
-
-                member.return_type = VoidType()
-                if member.return_type_name is not None:
-                    member.return_type = self._resolve_type_name(member.return_type_name, member)
-
-                class_sym.define(FunctionSymbol(name=member.name, params=params, return_type=member.return_type))
+            elif isinstance(member, FuncDecl):
+                class_sym.define(self._function_symbol(member))
             else:
                 self._error(f"Unknown class member type: {type(member)}", member)
 
-        self.scope.define(class_sym)
+        return class_sym
 
     # TODO: Do this properly
     def _resolve_type_name(self, type_name: str, node=None) -> Type:
@@ -228,7 +235,21 @@ class SemanticAnalyzer:
         self._error(f"Unknown type: {type_name}", node)
         return VoidType()
 
-    def _analyze_method(self, cls_decl: ClassDecl, method: MethodDecl):
+    def _analyze_function(self, func_decl: FuncDecl):
+        self.push_scope()
+        for param in func_decl.params:
+            self.scope.define(ParameterSymbol(name=param.name, type=param.type))
+        self.scope.return_type = func_decl.return_type
+
+        self._analyze_block(func_decl.block)
+        self.pop_scope()
+
+    def _analyze_class(self, cls_decl: ClassDecl):
+        for member in cls_decl.members:
+            if isinstance(member, FuncDecl):
+                self._analyze_method(cls_decl, member)
+
+    def _analyze_method(self, cls_decl: ClassDecl, method: FuncDecl):
         self.push_scope()
         cls = self.scope.lookup(cls_decl.name)
         if not isinstance(cls, Class):
