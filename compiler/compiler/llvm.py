@@ -3,7 +3,8 @@ from typing import Iterable, Optional, NoReturn
 
 from compiler.sema import VoidType, BoolType, IntType, ObjectType, FunctionType, LocalSymbol, ParameterSymbol
 from lang_ast import ClassDecl, ClassField, MethodDecl, ReturnStmt, _Statement, IntExpr, _Expression, BoolExpr, \
-    StringExpr, BinaryExpr, BinaryOperation, SymbolExpr, CallExpr, MemberExpr, ExprStmt, IfStmt, VarStmt, AllocExpr
+    StringExpr, BinaryExpr, BinaryOperation, SymbolExpr, CallExpr, MemberExpr, ExprStmt, IfStmt, VarStmt, AllocExpr, \
+    AssignStmt
 
 from .sema import Type
 
@@ -21,6 +22,8 @@ class LLVMIRGenerator:
 
         self._declarations = [
             "declare ptr @zre_alloc(ptr)",
+            "declare ptr @zre_get_field(ptr, ptr)",
+            "declare void @zre_field_set(ptr, ptr, ptr)",
             "declare ptr @zre_method_virtual(ptr, ptr)",
         ]
         self._class_imports: set[str] = set()
@@ -115,6 +118,23 @@ class LLVMIRGenerator:
 
             elif isinstance(stmt, ExprStmt):
                 self._emit_expr(stmt.expr)
+
+            elif isinstance(stmt, AssignStmt):
+                if isinstance(stmt.assignee, SymbolExpr):
+                    if isinstance(stmt.assignee.symbol, LocalSymbol):
+                        value = self._emit_expr(stmt.value)
+                        value_type = self._type_to_ir(stmt.value.type)
+                        self._emit(f"\tstore {value_type} {value}, {value_type} %{stmt.assignee.symbol.name}")
+                    else:
+                        fatal_error("Not an assignable symbol")
+                elif isinstance(stmt.assignee, MemberExpr):
+                    # Assuming PropertySymbol
+                    instance = self._emit_expr(stmt.assignee.expr)
+                    field_name = stmt.assignee.member
+                    value = self._emit_expr(stmt.value)
+                    self._emit(f"\tcall void @zre_field_set(ptr {instance}, ptr {self._str_sym(field_name)}, ptr {value})")
+                else:
+                    fatal_error("Not an assignable expression")
 
             elif isinstance(stmt, IfStmt):
                 if_idx = self._if_idx

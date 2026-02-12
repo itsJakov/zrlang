@@ -7,6 +7,28 @@ from lang_ast import parse
 
 INPUT = """
 class Logger {
+    func doSomething() {
+        var user = new User
+        user.username = "field set test"
+        
+        var array = new Array
+        array.append(user)
+        
+        if array.getIsEmpty() {
+            print("Array is empty")
+        } else {
+            print("Array is not empty")
+            var newUser = array.get(0)
+            newUser.toString().printToStdout()
+            newUser.testClass()
+            newUser.greet("Hello from array")
+            
+            if false {
+                print("will never happen")
+            }  
+        }
+    }
+
     func isEven(x: Int) -> Bool {
         if x < 0 {
             print("treating negative number as 0, which is even")
