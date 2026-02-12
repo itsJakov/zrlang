@@ -80,8 +80,9 @@ class LLVMIRGenerator:
                 self._emit_method(cls, method)
 
     def _emit_method(self, cls: ClassDecl, method: MethodDecl):
-        params = ", ".join(f"{self._type_to_ir(param.type)} %{param.name}" for param in method.params)
-        self._emit(f"define internal {self._type_to_ir(method.return_type)} @{cls.name}.{method.name}(ptr %self, {params}) {{")
+        params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in method.params]
+        params.insert(0, f"ptr %self")
+        self._emit(f"define internal {self._type_to_ir(method.return_type)} @{cls.name}.{method.name}({", ".join(params)}) {{")
         self._temp_idx = 0
         returns = self._emit_block(method.block)
         if not returns:
