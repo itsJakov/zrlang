@@ -25,6 +25,7 @@ class LLVMIRGenerator:
             "declare ptr @zre_get_field(ptr, ptr)",
             "declare void @zre_field_set(ptr, ptr, ptr)",
             "declare ptr @zre_method_virtual(ptr, ptr)",
+            "declare void @__zre_print(ptr)",
         ]
         self._class_imports: set[str] = set()
 
@@ -196,7 +197,9 @@ class LLVMIRGenerator:
             call = expr
             # TODO: This should use symbol info from semantic analysis
             if isinstance(call.callee, SymbolExpr):
-                fatal_error("jadno")
+                # TODO: Hardcoded for print
+                self._emit(f"\tcall void @__zre_print(ptr {self._emit_expr(call.args[0])})")
+                return ""
             elif isinstance(call.callee, MemberExpr):
                 callee = self._emit_expr(call.callee.expr)
 
@@ -205,7 +208,7 @@ class LLVMIRGenerator:
                     fatal_error(f"Expression '{function}' is not a function")
 
                 fn_temp = temp_local()
-                self._emit(f"\t{fn_temp} = call ptr @zre_method_virtual(ptr {callee}, ptr {self._str_sym(call.callee.member)})")
+                self._emit(f"\t{fn_temp} = call ptr @zre_method_virtual(ptr {callee}, ptr {self._str_sym(call.callee.member)}) ; {call.callee.member}")
 
                 args = [f"{self._type_to_ir(arg.type)} {self._emit_expr(arg)}" for arg in call.args]
                 args.insert(0, f"ptr {callee}")
