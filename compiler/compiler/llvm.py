@@ -64,7 +64,8 @@ class LLVMIRGenerator:
         self._emit(f"; ==== \"{func.name}\" Function ====")
 
         params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in func.params]
-        self._emit(f"define {self._type_to_ir(func.return_type)} @_zr_{func.name}({', '.join(params)}) {{")
+        name = "main" if func.name == "main" else f"_zr_{func.name}"
+        self._emit(f"define {self._type_to_ir(func.return_type)} @{name}({', '.join(params)}) {{")
         self._temp_idx = 0
         returns = self._emit_block(func.block)
         if not returns:

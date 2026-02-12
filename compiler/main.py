@@ -6,6 +6,11 @@ from compiler.sema import SemanticAnalyzer
 from lang_ast import parse
 
 INPUT = """
+func main() {
+    var logger = new Logger
+    logger.log(3, "This will only be logged to file")
+}
+
 func isEven(x: Int) -> Bool {
     if x < 0 {
         print("treating negative number as 0, which is even")
@@ -15,28 +20,6 @@ func isEven(x: Int) -> Bool {
 }
 
 class Logger {
-    func doSomething() {
-        var user = new User
-        user.username = "field set test"
-        
-        var array = new Array
-        array.append(user)
-        
-        if array.getIsEmpty() {
-            print("Array is empty")
-        } else {
-            print("Array is not empty")
-            var newUser = array.get(0)
-            newUser.toString().printToStdout()
-            newUser.testClass()
-            newUser.greet("Hello from array")
-            
-            if false {
-                print("will never happen")
-            }  
-        }
-    }
-
     func shouldLog(level: Int) -> Bool {
         if level < 5 {
             return false
@@ -73,6 +56,7 @@ if __name__ == "__main__":
         f.write(LLVMIRGenerator(result).generate())
 
     res = subprocess.run(["clang", "-Wno-override-module", "-S", "ir.ll", "-o", "out.s"])
+    #res = subprocess.run(["clang", "-Wno-override-module", "ir.ll", "../cmake-build-debug/libzrlang.a", "-o", "prog"])
     if res.returncode != 0:
         sys.exit("Error in IR")
 
