@@ -7,10 +7,11 @@
 
 DEFINE_FIELD(handle, FILE*)
 
-static void initWithPath(Instance* self, char* path) {
-    FILE* file = fopen(path, "a+");
+static void initWithPath(Instance* self, Instance* path) {
+    const char* path_str = zstr_buf(path);
+    FILE* file = fopen(path_str, "a+");
     if (file == NULL) {
-        fprintf(stderr, "Failed to open file: %s\n", path);
+        fprintf(stderr, "Failed to open file: %s\n", path_str);
         assert(0);
     }
     set_handle(self, file);

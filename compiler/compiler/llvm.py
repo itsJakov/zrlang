@@ -25,6 +25,7 @@ class LLVMIRGenerator:
             "declare ptr @zre_get_field(ptr, ptr)",
             "declare void @zre_field_set(ptr, ptr, ptr)",
             "declare ptr @zre_method_virtual(ptr, ptr)",
+            "declare ptr @zre_string_literal(ptr)",
             "declare void @_zr_print(ptr)",
             # TODO: Better way to handle built-in types?
             "@String = external constant ptr"
@@ -197,7 +198,9 @@ class LLVMIRGenerator:
             return f"{expr.value}"
 
         elif isinstance(expr, StringExpr):
-            return f"{self._str_sym(expr.value)}"
+            temp = temp_local()
+            self._emit(f"\t{temp} = call ptr @zre_string_literal(ptr {self._str_sym(expr.value)})")
+            return temp
 
         elif isinstance(expr, SymbolExpr):
             symbol = expr.symbol
