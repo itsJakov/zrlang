@@ -240,8 +240,12 @@ class SemanticAnalyzer:
         self._error(f"Unknown type: {type_name}", node)
         return VoidType()
 
-    def _analyze_function(self, func_decl: FuncDecl):
+    def _analyze_function(self, func_decl: FuncDecl, self_type: Optional[ObjectType] = None):
         self.push_scope()
+
+        if self_type is not None:
+            self.scope.define(ParameterSymbol(name="self", type=self_type))
+
         for param in func_decl.params:
             if not self.scope.define(ParameterSymbol(name=param.name, type=param.type)):
                 self._error(f"Parameter '{param.name}' is already defined", param)
@@ -251,26 +255,15 @@ class SemanticAnalyzer:
         self.pop_scope()
 
     def _analyze_class(self, cls_decl: ClassDecl):
-        for member in cls_decl.members:
-            if isinstance(member, FuncDecl):
-                self._analyze_method(cls_decl, member)
-
-    def _analyze_method(self, cls_decl: ClassDecl, method: FuncDecl):
-        self.push_scope()
         cls = self.scope.lookup(cls_decl.name)
         if not isinstance(cls, Class):
-            self._error("internal error: method's class not found in scope", method)
+            self._error("internal error: class not found in scope", cls_decl)
             sys.exit(1)
 
-        self.scope.define(ParameterSymbol(name="self", type=ObjectType(cls=cls)))
-
-        for param in method.params:
-            if not self.scope.define(ParameterSymbol(name=param.name, type=param.type)):
-                self._error(f"Parameter '{param.name}' is already defined", param)
-        self.scope.return_type = method.return_type
-
-        self._analyze_block(method.block)
-        self.pop_scope()
+        self_type = ObjectType(cls=cls)
+        for member in cls_decl.members:
+            if isinstance(member, FuncDecl):
+                self._analyze_function(member, self_type=self_type)
 
     def _analyze_block(self, block: list[_Statement]):
         self.push_scope()
