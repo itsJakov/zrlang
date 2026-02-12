@@ -28,7 +28,7 @@ class ObjectType:
 
 @dataclass
 class FunctionType:
-    param_types: list['Type']
+    param_types: Optional[list['Type']] # None means unknown parameters (e.g. from Object)
     return_type: 'Type'
 
 Type = Union[VoidType, BoolType, IntType, ObjectType, FunctionType]
@@ -333,7 +333,7 @@ class SemanticAnalyzer:
                 if target_type.cls == StandardTypes.OBJECT_CLASS:
                     # Just like Objective-C >:)
                     self._warning(f"Accessing unknown method {expr.member} on Object, assuming it returns Object", expr)
-                    return FunctionType(param_types=[], return_type=ObjectType(cls=StandardTypes.OBJECT_CLASS))
+                    return FunctionType(param_types=None, return_type=ObjectType(cls=StandardTypes.OBJECT_CLASS))
 
                 self._error(f"Undefined member {expr.member} on class {target_type.cls.name}", expr)
                 return None
@@ -354,15 +354,17 @@ class SemanticAnalyzer:
                 return None
 
             if isinstance(callee_type, FunctionType):
-                if len(arg_types) != len(callee_type.param_types):
-                    self._error(f"Function expects {len(callee_type.param_types)} argument(s), but {len(arg_types)} were provided", expr)
-                else:
-                    for i, (arg_type, param_type) in enumerate(zip(arg_types, callee_type.param_types)):
-                        if param_type == ObjectType(StandardTypes.OBJECT_CLASS):
-                            # TODO: There should be a unified way to check casting
-                            self._warning("Casting argument to Object", expr)
-                        elif arg_type is not None and arg_type != param_type:
-                            self._error(f"Argument {i + 1} type mismatch: expected {type(param_type).__name__}, got {type(arg_type).__name__}", expr)
+                # If param_types is None, it means we don't know what the function accepts
+                if callee_type.param_types is not None:
+                    if len(arg_types) != len(callee_type.param_types):
+                        self._error(f"Function expects {len(callee_type.param_types)} argument(s), but {len(arg_types)} were provided", expr)
+                    else:
+                        for i, (arg_type, param_type) in enumerate(zip(arg_types, callee_type.param_types)):
+                            if param_type == ObjectType(StandardTypes.OBJECT_CLASS):
+                                # TODO: There should be a unified way to check casting
+                                self._warning("todo: Casting argument to Object", expr)
+                            elif arg_type is not None and arg_type != param_type:
+                                self._error(f"Argument {i + 1} type mismatch: expected {type(param_type).__name__}, got {type(arg_type).__name__}", expr)
 
                 return callee_type.return_type
 
