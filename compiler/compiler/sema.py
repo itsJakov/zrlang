@@ -114,10 +114,11 @@ class Scope:
         self.symbols: dict[str, Symbol] = {}
         self.return_type: Optional[Type] = None
 
-    def define(self, symbol: Symbol):
+    def define(self, symbol: Symbol) -> bool:
         if symbol.name in self.symbols:
-            eprint(f"Symbol {symbol.name} already defined in this scope")
+            return False
         self.symbols[symbol.name] = symbol
+        return True
 
     def lookup(self, name: str) -> Optional[Symbol]:
         symbol = self.symbols.get(name)
@@ -178,9 +179,13 @@ class SemanticAnalyzer:
         # Pass 1: Collect function and class symbols
         for decl in ast:
             if isinstance(decl, FuncDecl):
-                self.scope.define(self._function_symbol(decl))
+                func_symbol = self._function_symbol(decl)
+                if not self.scope.define(func_symbol):
+                    self._error(f"Function '{func_symbol.name}' is already defined", decl)
             elif isinstance(decl, ClassDecl):
-                self.scope.define(self._class_symbol(decl))
+                class_symbol = self._class_symbol(decl)
+                if not self.scope.define(class_symbol):
+                    self._error(f"Class '{class_symbol.name}' is already defined", decl)
 
         # Pass 2: Verify class hierarchies
 
@@ -238,7 +243,8 @@ class SemanticAnalyzer:
     def _analyze_function(self, func_decl: FuncDecl):
         self.push_scope()
         for param in func_decl.params:
-            self.scope.define(ParameterSymbol(name=param.name, type=param.type))
+            if not self.scope.define(ParameterSymbol(name=param.name, type=param.type)):
+                self._error(f"Parameter '{param.name}' is already defined", param)
         self.scope.return_type = func_decl.return_type
 
         self._analyze_block(func_decl.block)
@@ -259,7 +265,8 @@ class SemanticAnalyzer:
         self.scope.define(ParameterSymbol(name="self", type=ObjectType(cls=cls)))
 
         for param in method.params:
-            self.scope.define(ParameterSymbol(name=param.name, type=param.type))
+            if not self.scope.define(ParameterSymbol(name=param.name, type=param.type)):
+                self._error(f"Parameter '{param.name}' is already defined", param)
         self.scope.return_type = method.return_type
 
         self._analyze_block(method.block)
@@ -282,7 +289,8 @@ class SemanticAnalyzer:
     def _analyze_statement(self, stmt: _Statement):
         if isinstance(stmt, VarStmt):
             value_type = self._analyze_expression(stmt.expr)
-            self.scope.define(LocalSymbol(name=stmt.local, type=value_type))
+            if not self.scope.define(LocalSymbol(name=stmt.local, type=value_type)):
+                self._error(f"Variable '{stmt.local}' is already defined in this scope", stmt)
 
         if isinstance(stmt, ExprStmt):
             self._analyze_expression(stmt.expr)
