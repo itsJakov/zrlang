@@ -114,12 +114,15 @@ class LLVMIRGenerator:
                 self._emit_expr(stmt.expr)
 
             elif isinstance(stmt, IfStmt):
-                end_label = f"if.{self._if_idx}.end"
-                true_label = f"if.{self._if_idx}.true"
+                if_idx = self._if_idx
+                self._if_idx += 1
+
+                end_label = f"if.{if_idx}.end"
+                true_label = f"if.{if_idx}.true"
                 if stmt.else_block is None:
                     false_label = end_label
                 else:
-                    false_label = f"if.{self._if_idx}.false"
+                    false_label = f"if.{if_idx}.false"
 
                 self._emit(f"\tbr i1 {self._emit_expr(stmt.condition)}, label %{true_label}, label %{false_label}")
 
