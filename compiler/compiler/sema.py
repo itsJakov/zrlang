@@ -92,8 +92,8 @@ class StandardTypes:
     ARRAY_CLASS = Class(
         name="Array",
         symbols=[
-            FunctionSymbol(name="append", params=[], return_type=VoidType()),
-            FunctionSymbol(name="get", params=[], return_type=ObjectType(cls=OBJECT_CLASS)),
+            FunctionSymbol(name="append", params=[ParameterSymbol("object", ObjectType(OBJECT_CLASS))], return_type=VoidType()),
+            FunctionSymbol(name="get", params=[ParameterSymbol("index", IntType())], return_type=ObjectType(OBJECT_CLASS)),
             FunctionSymbol(name="getIsEmpty", params=[], return_type=BoolType()),
         ]
     )
@@ -358,7 +358,10 @@ class SemanticAnalyzer:
                     self._error(f"Function expects {len(callee_type.param_types)} argument(s), but {len(arg_types)} were provided", expr)
                 else:
                     for i, (arg_type, param_type) in enumerate(zip(arg_types, callee_type.param_types)):
-                        if arg_type is not None and arg_type != param_type:
+                        if param_type == ObjectType(StandardTypes.OBJECT_CLASS):
+                            # TODO: There should be a unified way to check casting
+                            self._warning("Casting argument to Object", expr)
+                        elif arg_type is not None and arg_type != param_type:
                             self._error(f"Argument {i + 1} type mismatch: expected {type(param_type).__name__}, got {type(arg_type).__name__}", expr)
 
                 return callee_type.return_type
