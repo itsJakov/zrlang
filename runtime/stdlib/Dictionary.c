@@ -1,66 +1,60 @@
-#include <stdio.h>
-
 #include "zre.h"
 #include "zre_utils.h"
 
-#include "stb_ds.h"
+#define REGISTER_ZMAP_TYPES(X) \
+    X(Instance*, Instance*, ObjObj)
 
-typedef struct {
-    uint64_t key;
-    Instance* keyObj;
-    Instance* value;
-} Entry;
+#include "zmap.h"
 
-ZRE_CLASS_FIELD(map, Entry*)
+ZRE_CLASS_FIELD(map, zmap_ObjObj*)
 
-static uint64_t get_hash(Instance* obj) {
-    extern Class Hasher;
-    Instance* hasher = zre_alloc(&Hasher);
-    ((void (*)(Instance*))zre_method_virtual(hasher, "init"))(hasher);
+static uint32_t hash_obj(Instance* obj, uint32_t seed) {
+    uint64_t hash = zre_hash(obj);
+    return ZMAP_HASH_SCALAR(hash, seed);
+}
 
-    ((void (*)(Instance*, Instance*))zre_method_virtual(obj, "hashInto"))(obj, hasher);
-    uint64_t hash = ((uint64_t (*)(Instance*))zre_method_virtual(hasher, "finalize"))(hasher);
-
-    zre_release(hasher);
-    return hash;
+static int cmp_obj(Instance* a, Instance* b) {
+    return zre_call_type(a, "isEqual", uint64_t, b) ? 0 : 1;
 }
 
 static void init(Instance* self) {
-
+    // Because the runtime can only store exactly 64-bits per filed
+    // the zmap structure is allocated on the heap (ugh...)
+    zmap_ObjObj* map = malloc(sizeof(zmap_ObjObj));
+    *map = zmap_init_ObjObj(hash_obj, cmp_obj);
+    set_map(self, map);
 }
 
 static void deinit(Instance* self) {
-    Entry* map = get_map(self);
-    for (int i = 0; i < hmlen(map); i++) {
-        Entry* entry = &map[i];
-        zre_release(entry->keyObj);
-        zre_release(entry->value);
-    }
+    zmap_ObjObj* map = get_map(self);
 
-    hmfree(map);
+    zmap_iter_ObjObj iter = zmap_iter_init_ObjObj(map);
+    Instance* key;
+    Instance* value;
+    while (zmap_iter_next_ObjObj(&iter, &key, &value)) {
+        zre_release(key);
+        zre_release(value);
+    }
+    zmap_free(map);
+    free(map);
 }
 
 static Instance* get(Instance* self, Instance* keyObj) {
-    Entry* map = get_map(self);
+    zmap_ObjObj* map = get_map(self);
 
-    Instance* value = hmget(map, get_hash(keyObj));
-    zre_retain(value); // [ARC] Methods returning objects need to return them retained
-    return value;
+    Instance** value = zmap_get(map, keyObj);
+    if (value == NULL) return NULL;
+
+    zre_retain(*value); // [ARC] Methods returning objects need to return them retained
+    return *value;
 }
 
 static void set(Instance* self, Instance* keyObj, Instance* value) {
-    Entry* map = get_map(self);
+    zmap_ObjObj* map = get_map(self);
 
-    Entry newEntry = {
-        .key = get_hash(keyObj),
-        .keyObj = keyObj,
-        .value = value
-    };
+    zmap_put(map, keyObj, value);
     zre_retain(keyObj);
     zre_retain(value);
-
-    hmputs(map, newEntry);
-    set_map(self, map);
 }
 
 static Field fields[] = {
