@@ -1,25 +1,13 @@
-#include <stdio.h>
-
 #include "zre.h"
 
 static Field fields[] = {
-        { .name = "name", .type = kFieldTypeUInt64 }
-};
-
-static Method instanceMethods[] = {
-
+        { .name = "name", .type = kFieldTypeStrongObject }
 };
 
 Class School = {
         .name = "School",
         .super = &Object,
-        .fields = {
-                .len = 1,
-                .fields = fields
-        },
+        .fields = {  .len = 1, fields },
         .staticMethods = { 0 },
-        .instanceMethods = {
-                .len = 0,
-                .methods = instanceMethods
-        }
+        .instanceMethods = { 0 }
 };

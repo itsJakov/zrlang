@@ -2,6 +2,7 @@
 #include "zre_utils.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 ZRE_CLASS_FIELD(cstr, char*)
 ZRE_CLASS_FIELD(isConstant, uint64_t)
@@ -28,6 +29,11 @@ static Instance* toString(Instance* self) {
     return self;
 }
 
+static void hashInto(Instance* self, Instance* hasher) {
+    char* cstr = get_cstr(self);
+    zre_call(hasher, "combineRawBuffer", cstr, strlen(cstr));
+}
+
 static Field fields[] = {
         { .name = "cstr", .type = kFieldTypeUInt64 },
         { .name = "isConstant", .type = kFieldTypeUInt64 }
@@ -37,9 +43,10 @@ static Method methods[] = {
         // - Overrides
         { "deinit", deinit },
         { "toString", toString },
+        { "hashInto", hashInto },
 
         { "initWithCStr", initWithCStr },
-        { "initWithCStrConstant", initWithCStrConstant },
+        { "initWithCStrConstant", initWithCStrConstant }
 };
 
 Class String = {
@@ -47,5 +54,5 @@ Class String = {
         .super = &Object,
         .fields = { .len = 2, fields },
         .staticMethods = { 0 },
-        .instanceMethods = { .len = 4, methods }
+        .instanceMethods = { .len = 5, methods }
 };

@@ -4,34 +4,32 @@
 #include "zre.h"
 #include "zre_utils.h"
 
-ZRE_CLASS_FIELD(username, char*)
+ZRE_CLASS_FIELD(username, ZREString)
 ZRE_CLASS_FIELD(school, Instance*)
 
 static void init(Instance* self) {
-    set_username(self, "EmptyUser");
+    set_username(self, zstr("EmptyUser"));
 }
 
-static void greet(Instance* self, char* greeting) {
-    printf("%s, %s!\n", greeting, get_username(self));
+static void greet(Instance* self, ZREString greeting) {
+    printf("%s, %s!\n", zstr_get(greeting), zstr_get(get_username(self)));
 }
 
 static void testClass(Instance* self) {
     printf("+++ Testing class User (subclass: %s) +++\n", self->cls->name);
-    printf("Username: %s\n", (char*)zre_field_get(self, "username"));
+    printf("Username: %s\n", zstr_get(get_username(self)));
     printf("\tTesting greet(\"Greetings\")\n");
-    ((void (*)(Instance*, char*))zre_method_virtual(self, "greet"))(self, "Greetings");
+    zre_call(self, "greet", zstr("Greetings"));
     printf("+++ All done! +++\n");
 }
 
 static void hashInto(Instance* self, Instance* hasher) {
-    char* username = get_username(self);
-    ((void (*)(Instance*, void*, uint64_t))zre_method_virtual(hasher, "combineRawBuffer"))(hasher, username, strlen(username));
-
-    ((void (*)(Instance*, Instance*))zre_method_virtual(hasher, "combine"))(hasher, get_school(self));
+    zre_call(hasher, "combine", get_username(self));
+    zre_call(hasher, "combine", get_school(self));
 }
 
 static Field fields[] = {
-        { .name = "username", .type = kFieldTypeUInt64 },
+        { .name = "username", .type = kFieldTypeStrongObject },
         { .name = "school", .type = kFieldTypeStrongObject }
 };
 
@@ -45,13 +43,7 @@ static Method instanceMethods[] = {
 Class User = {
         .name = "User",
         .super = &Object,
-        .fields = {
-                .len = 2,
-                .fields = fields
-        },
+        .fields = { .len = 2, fields },
         .staticMethods = { 0 },
-        .instanceMethods = {
-                .len = 4,
-                .methods = instanceMethods
-        }
+        .instanceMethods = { .len = 4, instanceMethods }
 };
