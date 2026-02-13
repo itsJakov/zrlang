@@ -7,7 +7,7 @@
 #include <assert.h>
 
 //#define ARC_DEBUG
-#define ALLOC_DEBUG
+//#define ALLOC_DEBUG
 
 static size_t getStorageSize(Class* cls) {
     size_t size = 0;
@@ -60,7 +60,7 @@ void zre_release(Instance* obj) {
             for (int i = 0; i < currentCls->fields.len; i++) {
                 Field* field = &currentCls->fields.fields[i];
                 if (field->type == kFieldTypeStrongObject) {
-                    Instance* refObj = (Instance*)obj->storage[offset + 1];
+                    Instance* refObj = (Instance*)obj->storage[offset + i];
                     zre_release(refObj);
                 }
             }
