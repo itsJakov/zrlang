@@ -14,11 +14,16 @@
         zre_field_set(self, #NAME, (uint64_t)value); \
     }
 
-#define zre_call(obj, name, ...) \
+#define zre_call_type(obj, name, return_type, ...) \
     SUPPRESS_WARNINGS( \
-        ((Instance* (*)())zre_method_virtual(obj, name))(obj, ##__VA_ARGS__) \
+        ((return_type (*)())zre_method_virtual(obj, name))(obj, ##__VA_ARGS__) \
     )
+
+#define zre_call(obj, name, ...) zre_call_type(obj, name, Instance*, ##__VA_ARGS__)
 
 // - String utilities
 #define zstr(s) zre_string_literal(s)
 #define zstr_get(s) ((const char*)zre_field_get(s, "cstr"))
+
+// - Hashing utilities
+uint64_t zre_hash(Instance* obj);

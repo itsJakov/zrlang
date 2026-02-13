@@ -1,4 +1,5 @@
 #include "zre.h"
+#include "zre_utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,13 +12,18 @@ static ZREString toString(Instance* self) {
     return zre_string(buffer);
 }
 
+static uint64_t isEqual(Instance* self, Instance* other) {
+    return self == other;
+}
+
 static void hashInto(Instance* self, Instance* hasher) {
-    ((void (*)(Instance*, uint64_t))zre_method_virtual(hasher, "combineInteger"))(hasher, (uint64_t)self);
+    zre_call(hasher, "combineInteger", (uint64_t)self);
 }
 
 static Method methods[] = {
         { "deinit", deinit },
         { "toString", toString },
+        { "isEqual", isEqual },
         { "hashInto", hashInto }
 };
 
@@ -26,5 +32,5 @@ Class Object = {
         .super = NULL,
         .fields = { 0 },
         .staticMethods = { 0 },
-        .instanceMethods = { .len = 3, methods }
+        .instanceMethods = { .len = 4, methods }
 };
