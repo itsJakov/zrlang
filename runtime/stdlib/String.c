@@ -34,6 +34,15 @@ static void hashInto(Instance* self, Instance* hasher) {
     zre_call(hasher, "combineRawBuffer", cstr, strlen(cstr));
 }
 
+static uint64_t isEqual(Instance* self, Instance* other) {
+    if (self == other) return true;
+    if (other->cls != &String) return false;
+
+    char* cstrA = get_cstr(self);
+    char* cstrB = get_cstr(other);
+    return strcmp(cstrA, cstrB) == 0;
+}
+
 static Field fields[] = {
         { .name = "cstr", .type = kFieldTypeUInt64 },
         { .name = "isConstant", .type = kFieldTypeUInt64 }
@@ -44,6 +53,7 @@ static Method methods[] = {
         { "deinit", deinit },
         { "toString", toString },
         { "hashInto", hashInto },
+        { "isEqual", isEqual },
 
         { "initWithCStr", initWithCStr },
         { "initWithCStrConstant", initWithCStrConstant }
@@ -54,5 +64,5 @@ Class String = {
         .super = &Object,
         .fields = { .len = 2, fields },
         .staticMethods = { 0 },
-        .instanceMethods = { .len = 5, methods }
+        .instanceMethods = { .len = 6, methods }
 };
