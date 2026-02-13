@@ -77,9 +77,7 @@ class Class(Symbol):
 class StandardTypes:
     STRING_CLASS = Class(
         name="String",
-        symbols=[
-            FunctionSymbol(name="printToStdout", params=[], return_type=VoidType())
-        ]
+        symbols=[]
     )
 
     OBJECT_CLASS = Class(
@@ -106,7 +104,7 @@ class StandardTypes:
         ]
     )
 
-    PRINT_FUNCTION = FunctionSymbol(name="print", params=[ParameterSymbol(name="value", type=ObjectType(cls=STRING_CLASS))], return_type=VoidType())
+    PRINT_FUNCTION = FunctionSymbol(name="print", params=[ParameterSymbol(name="value", type=ObjectType(OBJECT_CLASS))], return_type=VoidType())
 
 class Scope:
     def __init__(self, parent: Optional['Scope'] = None):

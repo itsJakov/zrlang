@@ -23,7 +23,8 @@ add_library(zrlang STATIC
         runtime/stdlib/Array.c
         runtime/stdlib/Dictionary.c
         runtime/stdlib/String.c
-        runtime/stdlib/Hasher.c)
+        runtime/stdlib/Hasher.c
+        runtime/stdlib/File.c)
 
 target_include_directories(zrlang PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/runtime/lib)

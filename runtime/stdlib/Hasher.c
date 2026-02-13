@@ -5,7 +5,7 @@
 
 typedef XXH64_state_t HasherState;
 
-DEFINE_FIELD(state, HasherState*)
+ZRE_CLASS_FIELD(state, HasherState*)
 
 static void init(Instance* self) {
     HasherState* state = XXH64_createState();
@@ -50,7 +50,7 @@ static Method instanceMethods[] = {
 
 Class Hasher = {
         .name = "Hasher",
-        .super = &RootObject,
+        .super = &Object,
         .fields = { .len = 1, fields },
         .staticMethods = { 0 },
         .instanceMethods = { .len = 6, instanceMethods}

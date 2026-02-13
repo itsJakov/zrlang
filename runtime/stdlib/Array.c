@@ -5,7 +5,7 @@
 #include "zre_utils.h"
 #include "stb_ds.h"
 
-DEFINE_FIELD(array, Instance**)
+ZRE_CLASS_FIELD(array, Instance**)
 
 static void init(Instance* self) {
     zre_field_set(self, "array", 0);
@@ -67,7 +67,7 @@ static Method instanceMethods[] = {
 
 Class Array = {
     .name = "Array",
-    .super = &RootObject,
+    .super = &Object,
     .fields = { .len = 1, fields },
     .staticMethods = { 0 },
     .instanceMethods = { .len = 6, instanceMethods }

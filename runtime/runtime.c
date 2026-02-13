@@ -1,4 +1,5 @@
 #include "zre.h"
+#include "zre_utils.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -131,4 +132,28 @@ MethodImpl zre_method_super(Class* cls, const char* name) {
 
 MethodImpl zre_method_virtual(Instance* obj, const char* name) {
     return zre_method_lookup(obj->cls, name, true);
+}
+
+extern Class String;
+
+ZREString zre_string_literal(const char* s) {
+    Instance* str = zre_alloc(&String);
+    zre_call(str, "initWithCStrConstant", s);
+    return str;
+}
+
+ZREString zre_string(char* s) {
+    Instance* str = zre_alloc(&String);
+    zre_call(str, "initWithCStr", s);
+    return str;
+}
+
+void zre_print(Instance* obj) {
+    if (obj->cls == &String) {
+        puts(zstr_get(obj));
+    } else {
+        ZREString str = zre_call(obj, "toString");
+        puts(zstr_get(str));
+        zre_release(str);
+    }
 }

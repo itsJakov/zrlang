@@ -3,19 +3,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-extern Class String;
+static void deinit(Instance* self) {}
 
-static void deinit(Instance* self) {
-
-}
-
-static Instance* toString(Instance* self) {
+static ZREString toString(Instance* self) {
     char* buffer = malloc(1024);
     snprintf(buffer, 1024, "%s <%p>", self->cls->name, self);
-
-    Instance* string = zre_alloc(&String);
-    ((void (*)(Instance*, char*))zre_method_virtual(string, "initWithCStr"))(string, buffer);
-    return string;
+    return zre_string(buffer);
 }
 
 static void hashInto(Instance* self, Instance* hasher) {
@@ -28,10 +21,10 @@ static Method methods[] = {
         { "hashInto", hashInto }
 };
 
-Class RootObject = {
+Class Object = {
         .name = "Object",
         .super = NULL,
         .fields = { 0 },
         .staticMethods = { 0 },
-        .instanceMethods = { .len = 3, .methods = methods }
+        .instanceMethods = { .len = 3, methods }
 };

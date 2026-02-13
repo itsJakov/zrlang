@@ -4,8 +4,8 @@
 #include "zre.h"
 #include "zre_utils.h"
 
-DEFINE_FIELD(username, char*)
-DEFINE_FIELD(school, Instance*)
+ZRE_CLASS_FIELD(username, char*)
+ZRE_CLASS_FIELD(school, Instance*)
 
 static void init(Instance* self) {
     set_username(self, "EmptyUser");
@@ -44,7 +44,7 @@ static Method instanceMethods[] = {
 
 Class User = {
         .name = "User",
-        .super = &RootObject,
+        .super = &Object,
         .fields = {
                 .len = 2,
                 .fields = fields

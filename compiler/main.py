@@ -8,7 +8,7 @@ from lang_ast import parse
 INPUT = """
 func main() {
     var logger = new Logger
-    logger.log(3, "This will only be logged to file")
+    logger.log(16, "This will only to stdout and file")
 }
 
 func isEven(x: Int) -> Bool {
@@ -41,7 +41,7 @@ class Logger {
     }
     
     func logToStdout(level: Int, msg: String) {
-        msg.printToStdout()
+        print(msg)
     }
 }
 """

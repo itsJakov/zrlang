@@ -11,7 +11,7 @@ typedef struct {
     Instance* value;
 } Entry;
 
-DEFINE_FIELD(map, Entry*)
+ZRE_CLASS_FIELD(map, Entry*)
 
 static uint64_t get_hash(Instance* obj) {
     extern Class Hasher;
@@ -76,7 +76,7 @@ static Method instanceMethods[] = {
 
 Class Dictionary = {
     .name = "Dictionary",
-    .super = &RootObject,
+    .super = &Object,
     .fields = { .len = 1, fields },
     .staticMethods = { 0 },
     .instanceMethods = { .len = 4, instanceMethods }

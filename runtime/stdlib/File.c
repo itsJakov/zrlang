@@ -5,10 +5,10 @@
 #include <stdio.h>
 #include <assert.h>
 
-DEFINE_FIELD(handle, FILE*)
+ZRE_CLASS_FIELD(handle, FILE*)
 
 static void initWithPath(Instance* self, Instance* path) {
-    const char* path_str = zstr_buf(path);
+    const char* path_str = zstr_get(path);
     FILE* file = fopen(path_str, "a+");
     if (file == NULL) {
         fprintf(stderr, "Failed to open file: %s\n", path_str);
@@ -43,7 +43,7 @@ static Method methods[] = {
 
 Class File = {
         .name = "File",
-        .super = &RootObject,
+        .super = &Object,
         .fields = { .len = 1, fields },
         .staticMethods = { 0 },
         .instanceMethods = { .len = 3, methods }

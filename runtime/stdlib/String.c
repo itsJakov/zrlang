@@ -1,29 +1,25 @@
 #include "zre.h"
+#include "zre_utils.h"
 
-
-#include <stdio.h>
 #include <stdlib.h>
 
+ZRE_CLASS_FIELD(cstr, char*)
+ZRE_CLASS_FIELD(isConstant, uint64_t)
+
 static void initWithCStr(Instance* self, char* cstr) {
-    zre_field_set(self, "cstr", (uint64_t)cstr);
-    zre_field_set(self, "isConstant", 0);
+    set_cstr(self, cstr);
+    set_isConstant(self, 1);
 }
 
 static void initWithCStrConstant(Instance* self, const char* cstr) {
-    zre_field_set(self, "cstr", (uint64_t)cstr);
-    zre_field_set(self, "isConstant", 1);
-}
-
-static void printToStdout(Instance* self) {
-    char* cstr = (char*)zre_field_get(self, "cstr");
-    puts(cstr);
+    set_cstr(self, (char*)cstr); // I promise I won't touch cstr if isConstant == 1
+    set_isConstant(self, 1);
 }
 
 // - Overrides
 static void deinit(Instance* self) {
-    if (zre_field_get(self, "isConstant") == 0) {
-        char* cstr = (char*)zre_field_get(self, "cstr");
-        free(cstr);
+    if (get_isConstant(self) == 0) {
+        free(get_cstr(self));
     }
 }
 
@@ -40,17 +36,16 @@ static Field fields[] = {
 static Method methods[] = {
         // - Overrides
         { "deinit", deinit },
-//        { "toString", toString}
+        { "toString", toString },
 
         { "initWithCStr", initWithCStr },
         { "initWithCStrConstant", initWithCStrConstant },
-        { "printToStdout", printToStdout }
 };
 
 Class String = {
         .name = "String",
-        .super = &RootObject,
-        .fields = { .len = 2, .fields = fields },
+        .super = &Object,
+        .fields = { .len = 2, fields },
         .staticMethods = { 0 },
-        .instanceMethods = { .len = 4, .methods = methods }
+        .instanceMethods = { .len = 4, methods }
 };

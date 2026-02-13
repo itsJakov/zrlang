@@ -49,7 +49,7 @@ typedef struct {
 } Instance;
 
 // - API
-extern Class RootObject;
+extern Class Object;
 
 Instance* zre_alloc(Class* cls);
 
@@ -62,3 +62,9 @@ void zre_field_set(Instance* obj, const char* name, uint64_t value);
 MethodImpl zre_method_lookup(Class* cls, const char* name, bool required);
 MethodImpl zre_method_super(Class* cls, const char* name);
 MethodImpl zre_method_virtual(Instance* obj, const char* name);
+
+extern Class String;
+typedef Instance* ZREString;
+ZREString zre_string_literal(const char* s);
+ZREString zre_string(char* s);
+void zre_print(Instance* obj);

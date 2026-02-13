@@ -2,23 +2,13 @@
 #include <stdio.h>
 
 #include "zre.h"
+#include "zre_utils.h"
 
 extern Class Hasher;
 extern Class User;
 extern Class SuperUser;
 extern Class School;
 extern Class Array;
-
-void printObject(Instance* obj) {
-    // var str = newUser.toString()
-    Instance* str = ((Instance* (*)(Instance*))zre_method_virtual(obj, "toString"))(obj);
-
-    // str.printToStdout()
-    ((void (*)(Instance*))zre_method_virtual(str, "printToStdout"))(str);
-
-    zre_release(str); // [ARC] Exiting block
-}
-
 
 uint64_t printObjHash(Instance* obj) {
     Instance* hasher = zre_alloc(&Hasher);
@@ -70,8 +60,8 @@ void testHashing() {
 }
 
 int main(void) {
-    testHashing();
-    return 0;
+//    testHashing();
+//    return 0;
 
     // var newUser = User.init()
     Instance* newUser = zre_alloc(&SuperUser);
@@ -89,7 +79,7 @@ int main(void) {
     // newUser.testClass()
     ((void (*)(Instance*))zre_method_virtual(newUser, "testClass"))(newUser);
 
-    printObject(newUser);
+    zre_print(newUser);
 
     {
         // var school = School.init()
