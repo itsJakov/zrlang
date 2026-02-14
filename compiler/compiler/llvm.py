@@ -1,10 +1,11 @@
 import sys
 from typing import Iterable, Optional, NoReturn
 
-from compiler.sema import VoidType, BoolType, IntType, ObjectType, FunctionType, LocalSymbol, ParameterSymbol
+from compiler.sema import VoidType, BoolType, IntType, ObjectType, FunctionType, LocalSymbol, ParameterSymbol, \
+    PropertySymbol
 from lang_ast import ClassDecl, ClassField, FuncDecl, ReturnStmt, _Statement, IntExpr, _Expression, BoolExpr, \
     StringExpr, BinaryExpr, BinaryOperation, SymbolExpr, CallExpr, MemberExpr, ExprStmt, IfStmt, VarStmt, AllocExpr, \
-    AssignStmt, _TopLevelDecl
+    AssignStmt, _TopLevelDecl, _SymbolRefExpr
 
 from .sema import Type
 
@@ -22,8 +23,12 @@ class LLVMIRGenerator:
 
         self._declarations = [
             "declare ptr @zre_alloc(ptr)",
-            "declare ptr @zre_get_field(ptr, ptr)",
-            "declare void @zre_field_set(ptr, ptr, ptr)",
+            "declare i1 @zre_field_get_bool(ptr, ptr)",
+            "declare i64 @zre_field_get_int(ptr, ptr)",
+            "declare ptr @zre_field_get_obj(ptr, ptr)",
+            "declare void @zre_field_set_bool(ptr, ptr, i1)",
+            "declare void @zre_field_set_int(ptr, ptr, i64)",
+            "declare void @zre_field_set_obj(ptr, ptr, ptr)",
             "declare ptr @zre_method_virtual(ptr, ptr)",
             "declare ptr @zre_string_literal(ptr)",
             "declare void @_zr_print(ptr)",
@@ -80,8 +85,8 @@ class LLVMIRGenerator:
 
         fields = list(filter(lambda x: isinstance(x, ClassField), cls.members))
         if fields:
-            self._emit(f"@{cls.name}.fields = constant [{len(fields)} x ptr] [")
-            self._emit_joined([f"\tptr {self._str_sym(field.name)}" for field in fields],
+            self._emit(f"@{cls.name}.fields = constant [{len(fields)} x {{ ptr, i64 }}] [")
+            self._emit_joined([f"\t{{ ptr, i64 }} {{ ptr {self._str_sym(field.name)}, i64 0 }}" for field in fields],
                               separator=",\n")
             self._emit("]")
 
@@ -96,7 +101,7 @@ class LLVMIRGenerator:
 
         self._emit(f"@{cls.name} = constant [8 x i64] [")
         self._emit(f"\ti64 ptrtoint(ptr {self._str_sym(cls.name)} to i64),")
-        self._emit("\ti64 0,")
+        self._emit(f"\ti64 ptrtoint(ptr @Object to i64),")
 
         if fields:
             self._emit(f"\ti64 {len(fields)}, i64 ptrtoint (ptr @{cls.name}.fields to i64),")
@@ -150,19 +155,27 @@ class LLVMIRGenerator:
                 self._emit_expr(stmt.expr)
 
             elif isinstance(stmt, AssignStmt):
-                if isinstance(stmt.assignee, SymbolExpr):
-                    if isinstance(stmt.assignee.symbol, LocalSymbol):
-                        value = self._emit_expr(stmt.value)
-                        value_type = self._type_to_ir(stmt.value.type)
-                        self._emit(f"\tstore {value_type} {value}, {value_type} %{stmt.assignee.symbol.name}")
-                    else:
-                        fatal_error("Not an assignable symbol")
-                elif isinstance(stmt.assignee, MemberExpr):
-                    # Assuming PropertySymbol
-                    instance = self._emit_expr(stmt.assignee.expr)
-                    field_name = stmt.assignee.member
+                if isinstance(stmt.assignee, _SymbolRefExpr):
                     value = self._emit_expr(stmt.value)
-                    self._emit(f"\tcall void @zre_field_set(ptr {instance}, ptr {self._str_sym(field_name)}, ptr {value})")
+
+                    assignee_symbol = stmt.assignee.symbol
+                    if isinstance(assignee_symbol, LocalSymbol):
+                        value_type = self._type_to_ir(stmt.value.type)
+                        self._emit(f"\tstore {value_type} {value}, {value_type} %{assignee_symbol.name}")
+                    elif isinstance(assignee_symbol, PropertySymbol):
+                        if not isinstance(stmt.assignee, MemberExpr):
+                            fatal_error("PropertySymbol assignee must be a MemberExpr")
+
+                        instance = self._emit_expr(stmt.assignee.expr)
+                        field_name = assignee_symbol.name
+
+                        match assignee_symbol.type:
+                            case BoolType(): fn = "zre_field_set_bool"
+                            case IntType(): fn = "zre_field_set_int"
+                            case ObjectType(_): fn = "zre_field_set_obj"
+                            case _: fatal_error(f"Unsupported property type: {assignee_symbol.type}")
+
+                        self._emit(f"\tcall void @{fn}(ptr {instance}, ptr {self._str_sym(field_name)}, {self._type_to_ir(stmt.value.type)} {value})")
                 else:
                     fatal_error("Not an assignable expression")
 
@@ -223,6 +236,21 @@ class LLVMIRGenerator:
                 return temp
             else:
                 fatal_error(f"Unknown symbol type: {type(symbol)}")
+
+        elif isinstance(expr, MemberExpr):
+            # Assuming PropertySymbol
+            instance = self._emit_expr(expr.expr)
+            field_name = expr.member
+            temp = temp_local()
+
+            match expr.type:
+                case BoolType(): fn = "zre_field_get_bool"
+                case IntType(): fn = "zre_field_get_int"
+                case ObjectType(_): fn = "zre_field_get_obj"
+                case _: fatal_error(f"Unsupported property type: {expr.type}")
+
+            self._emit(f"\t{temp} = call {self._type_to_ir(expr.type)} @{fn}(ptr {instance}, ptr {self._str_sym(field_name)})")
+            return temp
 
         elif isinstance(expr, CallExpr):
             call = expr
