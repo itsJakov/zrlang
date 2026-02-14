@@ -20,6 +20,7 @@ class LLVMIRGenerator:
         self._strings: list[str] = []
         self._temp_idx: int = 0
         self._if_idx: int = 0
+        self._current_class: Optional[ClassDecl] = None
 
         self._declarations = [
             "declare ptr @zre_alloc(ptr)",
@@ -29,6 +30,7 @@ class LLVMIRGenerator:
             "declare void @zre_field_set_bool(ptr, ptr, i1)",
             "declare void @zre_field_set_int(ptr, ptr, i64)",
             "declare void @zre_field_set_obj(ptr, ptr, ptr)",
+            "declare ptr @zre_method_super(ptr, ptr)",
             "declare ptr @zre_method_virtual(ptr, ptr)",
             "declare ptr @zre_string_literal(ptr)",
             "declare void @_zr_print(ptr)",
@@ -83,6 +85,7 @@ class LLVMIRGenerator:
         self._emit("}\n")
 
     def _emit_class(self, cls: ClassDecl):
+        self._current_class = cls
         self._emit(f"; ==== \"{cls.name}\" Class Definition ====")
 
         fields = list(filter(lambda x: isinstance(x, ClassField), cls.members))
@@ -122,6 +125,7 @@ class LLVMIRGenerator:
             self._emit(f"\n; ==== \"{cls.name}\" Methods ====")
             for method in methods:
                 self._emit_method(cls, method)
+        self._current_class = None
 
     def _emit_method(self, cls: ClassDecl, method: FuncDecl):
         params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in method.params]
@@ -267,15 +271,25 @@ class LLVMIRGenerator:
 
                 call = f"call {self._type_to_ir(function.return_type)} @_zr_{call.callee.name}({', '.join(args)})"
             elif isinstance(call.callee, MemberExpr):
-                callee = self._emit_expr(call.callee.expr)
                 function = call.callee.type
                 if not isinstance(function, FunctionType):
                     fatal_error(f"Expression '{function}' is not a function")
 
                 fn_temp = temp_local()
-                self._emit(f"\t{fn_temp} = call ptr @zre_method_virtual(ptr {callee}, ptr {self._str_sym(call.callee.member)}) ; {call.callee.member}")
 
-                args.insert(0, f"ptr {callee}")
+                if isinstance(call.callee.expr, SymbolExpr) and isinstance(call.callee.expr.symbol, ParameterSymbol) and call.callee.expr.symbol.name == "super":
+                    # Such an ugly ugly hack to call the superclass method
+                    if self._current_class is None:
+                        fatal_error("No class or superclass")
+
+                    super_class = self._current_class.super or "Object"
+                    self._emit(f"\t{fn_temp} = call ptr @zre_method_super(ptr @{super_class}, ptr {self._str_sym(call.callee.member)}) ; {call.callee.member}")
+                    args.insert(0, f"ptr %self")
+                else:
+                    callee = self._emit_expr(call.callee.expr)
+                    self._emit(f"\t{fn_temp} = call ptr @zre_method_virtual(ptr {callee}, ptr {self._str_sym(call.callee.member)}) ; {call.callee.member}")
+                    args.insert(0, f"ptr {callee}")
+
                 call = f"call {self._type_to_ir(function.return_type)} {fn_temp}({", ".join(args)})"
             else:
                 fatal_error(f"Statement '{call.callee}' is not callable")
