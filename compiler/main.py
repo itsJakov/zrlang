@@ -15,7 +15,8 @@ func main() -> Int {
     logger.addService(new FileLoggerService)
     
     logger.log(5, "This is a log message :)")
-    print(logger)
+    logger.log(logger.threshold - 1, "You will never see this log message :(")
+    logger.testAllServices()
     
     return 0
 }
@@ -62,6 +63,11 @@ class Logger {
         } else {
             print("Log level too low, skipping log")
         }
+    }
+    
+    func testAllServices() {
+        self.services.get(0).test()
+        self.services.get(1).test()
     }
 }
 """

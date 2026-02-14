@@ -101,9 +101,10 @@ class LLVMIRGenerator:
                               separator=",\n")
             self._emit("]")
 
+        # -- Class table ---
         self._emit(f"@{cls.name} = constant [8 x i64] [")
         self._emit(f"\ti64 ptrtoint(ptr {self._str_sym(cls.name)} to i64),")
-        self._emit(f"\ti64 ptrtoint(ptr @Object to i64),")
+        self._emit(f"\ti64 ptrtoint(ptr @{cls.super or "Object"} to i64),")
 
         if fields:
             self._emit(f"\ti64 {len(fields)}, i64 ptrtoint (ptr @{cls.name}.fields to i64),")
@@ -115,6 +116,7 @@ class LLVMIRGenerator:
         if methods:
             self._emit(f"\ti64 {len(methods)}, i64 ptrtoint (ptr @{cls.name}.instanceMethods to i64)")
         self._emit("]")
+        # ---
 
         if methods:
             self._emit(f"\n; ==== \"{cls.name}\" Methods ====")
