@@ -390,7 +390,7 @@ class SemanticAnalyzer:
                 if stmt.expr is not None:
                     value_type = self._analyze_expression(stmt.expr)
 
-                if value_type is not None and value_type != self.scope.return_type:
+                if not is_assignable_to(value_type, self.scope.return_type):
                     self._error(f"Return type mismatch: expected {self.scope.return_type}, got {value_type}", stmt)
                 continue
             self._analyze_statement(stmt)
