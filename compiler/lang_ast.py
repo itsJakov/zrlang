@@ -140,6 +140,9 @@ class ClassDecl(_TopLevelDecl):
     members: list[_ClassMember]
 
 # Method / Function
+class FuncDecorator(Enum):
+    OVERRIDE = "override"
+
 @dataclass
 class FuncParam(_Ast):
     name: str
@@ -148,6 +151,7 @@ class FuncParam(_Ast):
 
 @dataclass
 class FuncDecl(_TopLevelDecl, _ClassMember):
+    decorators: set[FuncDecorator] # TODO: Ignoring duplicate decorators for now
     name: str
     params: list[FuncParam]
     return_type_name: Optional[str]
@@ -172,6 +176,9 @@ class ToAst(Transformer):
 
     def class_body(self, l: list[_ClassMember]) -> list[_ClassMember]:
         return l
+
+    def decorator_list(self, l: list[str]) -> set[FuncDecorator]:
+        return set(FuncDecorator(s) for s in l)
 
     def TRUE(self, t: Token) -> bool:
         return True

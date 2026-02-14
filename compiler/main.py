@@ -31,13 +31,13 @@ class LoggerService {
 }
 
 class ConsoleLoggerService : LoggerService {
-    func log(message: String) {
+    override func log(message: String) {
         print(message)
     }
 }
 
 class FileLoggerService : LoggerService {
-    func log(message: String) {
+    override func log(message: String) {
         var newFile = new File
         newFile.initWithPath("log.txt")
         newFile.append(message)

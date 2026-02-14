@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 from lang_ast import ClassDecl, ClassField, FuncDecl, _Expression, IntExpr, StringExpr, SymbolExpr, MemberExpr, \
     CallExpr, BinaryExpr, BinaryOperation, _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr, _Ast, \
-    ReturnStmt, BoolExpr, _TopLevelDecl
+    ReturnStmt, BoolExpr, _TopLevelDecl, FuncDecorator
 
 
 def eprint(*args, **kwargs):
@@ -328,24 +328,37 @@ class SemanticAnalyzer:
                 self._analyze_function(member, self_type=self_type)
 
     def _check_method_overrides(self, cls: Class, cls_decl: ClassDecl):
-        if cls.parent is None:
-            return
+        for member in cls_decl.members:
+            if not isinstance(member, FuncDecl):
+                continue
+            func_decl: FuncDecl = member
+            is_override = FuncDecorator.OVERRIDE in func_decl.decorators
 
-        for name, symbol in cls.symbols.items():
-            if not isinstance(symbol, FunctionSymbol):
+            symbol = cls.lookup_member(member.name)
+            if symbol is None or not isinstance(symbol, FunctionSymbol):
+                continue # Should never happen
+
+            # Error 1: Class has no parent but method has override keyword
+            if cls.parent is None or cls.parent == StandardTypes.OBJECT_CLASS:
+                if is_override:
+                    self._error(f"Method '{func_decl.name}' has 'override' but class has no parent", func_decl)
                 continue
 
-            parent_symbol = cls.parent.lookup_member(name)
+            # Error 2: Method has override keyword but does not override any parent method
+            parent_symbol = cls.parent.lookup_member(func_decl.name)
             if parent_symbol is None:
-                continue # Not an override
-
-            if not isinstance(parent_symbol, FunctionSymbol):
-                self._error(f"Method '{name}' overrides a non-method member in parent class", cls_decl)
+                if is_override:
+                    self._error(f"Method '{func_decl.name}' has 'override' but does not override any parent method", func_decl)
                 continue
 
+            # Error 3: Method overrides a method without override keyword
+            if not is_override:
+                self._error(f"Method '{func_decl.name}' overrides parent method but missing 'override'", func_decl)
+
+            # Error 4: Method signature does not match parent method signature
             if len(symbol.params) != len(parent_symbol.params):
                 self._error(
-                    f"Method '{name}' has {len(symbol.params)} parameter(s), "
+                    f"Method '{symbol.name}' has {len(symbol.params)} parameter(s), "
                     f"but parent method has {len(parent_symbol.params)}",
                     func_decl
                 )
@@ -356,7 +369,7 @@ class SemanticAnalyzer:
             for i, (child_param, parent_param) in enumerate(zip(symbol.params, parent_symbol.params)):
                 if not is_assignable_to(parent_param.type, child_param.type):
                     self._error(
-                        f"Method '{name}' parameter {i + 1} type '{child_param.type}' is not compatible "
+                        f"Method '{symbol.name}' parameter {i + 1} type '{child_param.type}' is not compatible "
                         f"with parent parameter type '{parent_param.type}'",
                         func_decl
                     )
@@ -364,8 +377,9 @@ class SemanticAnalyzer:
             # Check return type (covariance: child return type should be assignable to parent return type)
             if not is_assignable_to(symbol.return_type, parent_symbol.return_type):
                 self._error(
-                    f"Method '{name}' return type '{symbol.return_type}' is not compatible "
+                    f"Method '{symbol.name}' return type '{symbol.return_type}' is not compatible "
                     f"with parent return type '{parent_symbol.return_type}'",
+                    func_decl
                 )
 
     def _analyze_block(self, block: list[_Statement]):
