@@ -137,7 +137,7 @@ class LLVMIRGenerator:
                     value = self._emit_expr(stmt.expr)
                     self._emit(f"\tret {self._type_to_ir(stmt.expr.type)} {value}")
                 else:
-                    self._emit("\tret i64 0")
+                    self._emit("\tret void")
                 return True
 
             # TODO: mem2reg won't be able to optimize this if allocas are not at the start of the function!

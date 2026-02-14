@@ -9,10 +9,10 @@ INPUT = """
 func main() {
     var logger = new Logger
     logger.prefix = "== LOG =="
-    logger.limit = 5
-    logger.fileSupport = false
-    print(logger.prefix)
-    logger.log(16, "This will only to stdout and file")
+    logger.setLimit(-1)
+    logger.setLimit(12)
+    logger.fileSupport = true
+    logger.log(16, "Something has happened!")
 }
 
 func isEven(x: Int) -> Bool {
@@ -28,8 +28,20 @@ class Logger {
     var prefix: String
     var fileSupport: Bool
 
+    func getLimit() -> Int {
+        return self.limit
+    }
+
+    func setLimit(newLimit: Int) {
+        if newLimit < 0 {
+            print("limit cannot be negative, setting to 0")
+            return
+        }
+        self.limit = newLimit
+    }
+
     func shouldLog(level: Int) -> Bool {
-        if level < self.limit {
+        if level < self.getLimit() {
             return false
         }
         return isEven(level)
@@ -49,6 +61,7 @@ class Logger {
     }
     
     func logToStdout(level: Int, msg: String) {
+        print(self.prefix)
         print(msg)
     }
 }
