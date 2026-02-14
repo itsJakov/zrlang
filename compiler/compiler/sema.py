@@ -339,24 +339,18 @@ class SemanticAnalyzer:
             if symbol is None or not isinstance(symbol, FunctionSymbol):
                 continue # Should never happen
 
-            # Error 1: Class has no parent but method has override keyword
-            if cls.parent is None or cls.parent == StandardTypes.OBJECT_CLASS:
-                if is_override:
-                    self._error(f"Method '{func_decl.name}' has 'override' but class has no parent", func_decl)
-                continue
-
-            # Error 2: Method has override keyword but does not override any parent method
+            # Error 1: Method has override keyword but does not override any parent method
             parent_symbol = cls.parent.lookup_member(func_decl.name)
             if parent_symbol is None:
                 if is_override:
                     self._error(f"Method '{func_decl.name}' has 'override' but does not override any parent method", func_decl)
                 continue
 
-            # Error 3: Method overrides a method without override keyword
+            # Error 2: Method overrides a method without override keyword
             if not is_override:
                 self._error(f"Method '{func_decl.name}' overrides parent method but missing 'override'", func_decl)
 
-            # Error 4: Method signature does not match parent method signature
+            # Error 3: Method signature does not match parent method signature
             if len(symbol.params) != len(parent_symbol.params):
                 self._error(
                     f"Method '{symbol.name}' has {len(symbol.params)} parameter(s), "
