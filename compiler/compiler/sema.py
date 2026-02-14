@@ -12,24 +12,37 @@ def eprint(*args, **kwargs):
 
 @dataclass
 class VoidType:
-    pass
+    def __repr__(self):
+        return "Void"
 
 @dataclass
 class BoolType:
-    pass
+    def __repr__(self):
+        return "Bool"
 
 @dataclass
 class IntType:
-    pass
+    def __repr__(self):
+        return "Int"
 
 @dataclass
 class ObjectType:
     cls: 'Class'
 
+    def __repr__(self):
+        return self.cls.name
+
 @dataclass
 class FunctionType:
     param_types: Optional[list['Type']] # None means unknown parameters (e.g. from Object)
     return_type: 'Type'
+
+    def __repr__(self):
+        if self.param_types is None:
+            params = "..."
+        else:
+            params = ", ".join(str(p) for p in self.param_types)
+        return f"({params}) -> {self.return_type}"
 
 Type = Union[VoidType, BoolType, IntType, ObjectType, FunctionType]
 
@@ -272,7 +285,7 @@ class SemanticAnalyzer:
                     value_type = self._analyze_expression(stmt.expr)
 
                 if value_type is not None and value_type != self.scope.return_type:
-                    self._error(f"Return type mismatch: expected {type(self.scope.return_type).__name__}, got {type(value_type).__name__}", stmt)
+                    self._error(f"Return type mismatch: expected {self.scope.return_type}, got {value_type}", stmt)
                 continue
             self._analyze_statement(stmt)
         self.pop_scope()
@@ -294,12 +307,12 @@ class SemanticAnalyzer:
             if assignee_type is None or value_type is None:
                 return
             if assignee_type != value_type:
-                self._error(f"Type mismatch in assignment: {type(assignee_type).__name__} and {type(value_type).__name__}", stmt)
+                self._error(f"Type mismatch in assignment: {assignee_type} and {value_type}", stmt)
 
         if isinstance(stmt, IfStmt):
             condition_type = self._analyze_expression(stmt.condition)
             if condition_type is not None and not isinstance(condition_type, BoolType):
-                self._error(f"If condition must be of type Bool, got {type(condition_type).__name__}", stmt)
+                self._error(f"If condition must be of type Bool, got {condition_type}", stmt)
             self._analyze_block(stmt.block)
             if stmt.else_block is not None:
                 self._analyze_block(stmt.else_block)
@@ -361,7 +374,7 @@ class SemanticAnalyzer:
                 self._error(f"Undefined member {expr.member} on class {target_type.cls.name}", expr)
                 return None
 
-            self._error(f"Member access not supported on type {type(target_type).__name__}", expr)
+            self._error(f"Member access not supported on type {target_type}", expr)
             return None
 
         if isinstance(expr, CallExpr):
@@ -387,11 +400,11 @@ class SemanticAnalyzer:
                                 # TODO: There should be a unified way to check casting
                                 self._warning("todo: Casting argument to Object", expr)
                             elif arg_type is not None and arg_type != param_type:
-                                self._error(f"Argument {i + 1} type mismatch: expected {type(param_type).__name__}, got {type(arg_type).__name__}", expr)
+                                self._error(f"Argument {i + 1} type mismatch: expected {param_type}, got {arg_type}", expr)
 
                 return callee_type.return_type
 
-            self._error(f"Attempting to call non-callable type {type(callee_type).__name__}", expr)
+            self._error(f"Attempting to call non-callable type {callee_type}", expr)
             return None
 
         if isinstance(expr, BinaryExpr):
@@ -402,7 +415,7 @@ class SemanticAnalyzer:
                 return None
 
             if type(lhs_type) != type(rhs_type):
-                self._error(f"Type mismatch in binary expression: {type(lhs_type).__name__} and {type(rhs_type).__name__}", expr)
+                self._error(f"Type mismatch in binary expression: {lhs_type} and {rhs_type}", expr)
                 return None
 
             match expr.op:
@@ -410,13 +423,13 @@ class SemanticAnalyzer:
                     if isinstance(lhs_type, IntType):
                         return IntType()
                     else:
-                        self._error(f"Arithmetic operations only supported on Int, got {type(lhs_type).__name__}", expr)
+                        self._error(f"Arithmetic operations only supported on Int, got {lhs_type}", expr)
                         return None
                 case BinaryOperation.EQ | BinaryOperation.NEQ | BinaryOperation.GT | BinaryOperation.GTE | BinaryOperation.LT | BinaryOperation.LTE:
                     if isinstance(lhs_type, IntType):
                         return BoolType()
                     else:
-                        self._error(f"Comparison operations only supported on Int, got {type(lhs_type).__name__}", expr)
+                        self._error(f"Comparison operations only supported on Int, got {lhs_type}", expr)
                         return None
                 case BinaryOperation.AND | BinaryOperation.OR:
                     self._error(f"Logical operators not supported yet!", expr)
