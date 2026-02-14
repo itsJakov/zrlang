@@ -6,63 +6,62 @@ from compiler.sema import SemanticAnalyzer
 from lang_ast import parse
 
 INPUT = """
-func main() {
+func main() -> Int {
     var logger = new Logger
-    logger.prefix = "== LOG =="
-    logger.setLimit(-1)
-    logger.setLimit(12)
-    logger.fileSupport = true
-    logger.log(16, "Something has happened!")
+    logger.init()
+    logger.threshold = 2
+    
+    logger.addService(new ConsoleLoggerService)
+    logger.addService(new FileLoggerService)
+    
+    logger.log(5, "This is a log message :)")
+    print(logger)
+    
+    return 0
 }
 
-func isEven(x: Int) -> Bool {
-    if x < 0 {
-        print("treating negative number as 0, which is even")
-        return true
+class LoggerService {
+    func log(message: String) {
     }
-    return x % 2 == 0
+    
+    func test() {
+        self.log("TEST MESSAGE")
+    }
+}
+
+class ConsoleLoggerService : LoggerService {
+    func log(message: String) {
+        print(message)
+    }
+}
+
+class FileLoggerService : LoggerService {
+    func log(message: String) {
+        var newFile = new File
+        newFile.initWithPath("log.txt")
+        newFile.append(message)
+    }
 }
 
 class Logger {
-    var limit: Int
-    var prefix: String
-    var fileSupport: Bool
-
-    func getLimit() -> Int {
-        return self.limit
-    }
-
-    func setLimit(newLimit: Int) {
-        if newLimit < 0 {
-            print("limit cannot be negative, setting to 0")
-            return
-        }
-        self.limit = newLimit
-    }
-
-    func shouldLog(level: Int) -> Bool {
-        if level < self.getLimit() {
-            return false
-        }
-        return isEven(level)
-    }
-
-    func log(level: Int, msg: String) {
-        if self.shouldLog(level) {
-            self.logToStdout(level, msg)
-        }
-        self.logToFile(level, msg)
+    var services: Array
+    var threshold: Int
+    
+    func init() {
+        self.services = new Array
     }
     
-    func logToFile(level: Int, msg: String) {
-        var newFile = new File
-        newFile.initWithPath("log.txt")
-        newFile.append(msg)
+    func addService(service: LoggerService) {
+        self.services.append(service)
     }
     
-    func logToStdout(level: Int, msg: String) {
-        print(self.prefix)
-        print(msg)
+    func log(level: Int, message: String) {
+        if level >= self.threshold {
+            self.services.get(0).log(message)
+            self.services.get(1).log(message)
+        } else {
+            print("Log level too low, skipping log")
+        }
     }
 }
 """

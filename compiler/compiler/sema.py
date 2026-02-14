@@ -46,6 +46,15 @@ class FunctionType:
 
 Type = Union[VoidType, BoolType, IntType, ObjectType, FunctionType]
 
+def is_assignable_to(source: Type, target: Type) -> bool:
+    if source == target:
+        return True
+
+    if isinstance(source, ObjectType) and isinstance(target, ObjectType):
+        return source.cls.is_subclass_of(target.cls)
+
+    return False
+
 @dataclass
 class Symbol:
     name: str
@@ -75,9 +84,10 @@ class Class(Symbol):
     symbols: dict[str, FunctionSymbol | PropertySymbol]
     parent: Optional['Class'] = None
 
-    def __init__(self, name: str, symbols: Optional[list[FunctionSymbol | PropertySymbol]] = None):
+    def __init__(self, name: str, symbols: Optional[list[FunctionSymbol | PropertySymbol]] = None, parent: Optional['Class'] = None):
         super().__init__(name)
         self.symbols = {}
+        self.parent = parent
         if symbols:
             for symbol in symbols:
                 self.symbols[symbol.name] = symbol
@@ -87,21 +97,33 @@ class Class(Symbol):
             eprint(f"Symbol {symbol.name} already defined in class {self.name}")
         self.symbols[symbol.name] = symbol
 
-class StandardTypes:
-    STRING_CLASS = Class(
-        name="String",
-        symbols=[]
-    )
+    def is_subclass_of(self, other: 'Class') -> bool:
+        current = self
+        while current is not None:
+            if current.name == other.name:
+                return True
+            current = current.parent
+        return False
 
-    OBJECT_CLASS = Class(
-        name="RootObject",
-        symbols=[
-            FunctionSymbol(name="toString", params=[], return_type=ObjectType(cls=STRING_CLASS))
-        ]
-    )
+    def lookup_member(self, name: str) -> Optional[FunctionSymbol | PropertySymbol]:
+        current = self
+        while current is not None:
+            if name in current.symbols:
+                return current.symbols[name]
+            current = current.parent
+        return None
+
+class StandardTypes:
+    STRING_CLASS = Class(name="String", symbols=[])
+    OBJECT_CLASS = Class(name="Object", symbols=[])
+
+    # Dependency loop...
+    STRING_CLASS.parent = OBJECT_CLASS
+    OBJECT_CLASS.define(FunctionSymbol(name="toString", params=[], return_type=ObjectType(cls=STRING_CLASS)))
 
     ARRAY_CLASS = Class(
         name="Array",
+        parent=OBJECT_CLASS,
         symbols=[
             FunctionSymbol(name="append", params=[ParameterSymbol("object", ObjectType(OBJECT_CLASS))], return_type=VoidType()),
             FunctionSymbol(name="get", params=[ParameterSymbol("index", IntType())], return_type=ObjectType(OBJECT_CLASS)),
@@ -111,6 +133,7 @@ class StandardTypes:
 
     FILE_CLASS = Class(
         name="File",
+        parent=OBJECT_CLASS,
         symbols=[
             FunctionSymbol(name="initWithPath", params=[ParameterSymbol(name="path", type=ObjectType(cls=STRING_CLASS))], return_type=VoidType()),
             FunctionSymbol(name="append", params=[ParameterSymbol(name="content", type=ObjectType(cls=STRING_CLASS))], return_type=VoidType()),
@@ -198,7 +221,10 @@ class SemanticAnalyzer:
                 if not self.scope.define(class_symbol):
                     self._error(f"Class '{class_symbol.name}' is already defined", decl)
 
-        # Pass 2: Verify class hierarchies
+        # Pass 2: Resolve class hierarchies
+        for decl in ast:
+            if isinstance(decl, ClassDecl):
+                self._resolve_class_hierarchy(decl)
 
         # Pass 3: Verify methods
         for decl in ast:
@@ -208,6 +234,25 @@ class SemanticAnalyzer:
                 self._analyze_class(decl)
 
         return self.error_count == 0
+
+    def _resolve_class_hierarchy(self, cls_decl: ClassDecl):
+        class_sym = self.scope.lookup(cls_decl.name)
+        if not isinstance(class_sym, Class):
+            return
+
+        if cls_decl.super is None:
+            class_sym.parent = StandardTypes.OBJECT_CLASS
+            return
+
+        parent_sym = self.scope.lookup(cls_decl.super)
+        if parent_sym is None:
+            self._error(f"Unknown parent class '{cls_decl.super}'", cls_decl)
+            return
+        if not isinstance(parent_sym, Class):
+            self._error(f"'{cls_decl.super}' is not a class", cls_decl)
+            return
+
+        class_sym.parent = parent_sym
 
     def _function_symbol(self, func: FuncDecl) -> FunctionSymbol:
         params = []
@@ -306,8 +351,8 @@ class SemanticAnalyzer:
             value_type = self._analyze_expression(stmt.value)
             if assignee_type is None or value_type is None:
                 return
-            if assignee_type != value_type:
-                self._error(f"Type mismatch in assignment: {assignee_type} and {value_type}", stmt)
+            if not is_assignable_to(value_type, assignee_type):
+                self._error(f"Type mismatch in assignment: cannot assign {value_type} to {assignee_type}", stmt)
 
         if isinstance(stmt, IfStmt):
             condition_type = self._analyze_expression(stmt.condition)
@@ -358,7 +403,7 @@ class SemanticAnalyzer:
                 return None
 
             if isinstance(target_type, ObjectType):
-                member_symbol = target_type.cls.symbols.get(expr.member)
+                member_symbol = target_type.cls.lookup_member(expr.member)
                 expr.symbol = member_symbol
                 if member_symbol is not None:
                     if isinstance(member_symbol, PropertySymbol):
@@ -396,10 +441,7 @@ class SemanticAnalyzer:
                         self._error(f"Function expects {len(callee_type.param_types)} argument(s), but {len(arg_types)} were provided", expr)
                     else:
                         for i, (arg_type, param_type) in enumerate(zip(arg_types, callee_type.param_types)):
-                            if param_type == ObjectType(StandardTypes.OBJECT_CLASS):
-                                # TODO: There should be a unified way to check casting
-                                self._warning("todo: Casting argument to Object", expr)
-                            elif arg_type is not None and arg_type != param_type:
+                            if arg_type is not None and not is_assignable_to(arg_type, param_type):
                                 self._error(f"Argument {i + 1} type mismatch: expected {param_type}, got {arg_type}", expr)
 
                 return callee_type.return_type
