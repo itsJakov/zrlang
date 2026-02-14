@@ -26,6 +26,7 @@ class LoggerService {
     }
     
     func test() {
+        print("Testing Service: ".concat(self.toString()))
         self.log("TEST MESSAGE")
     }
 }

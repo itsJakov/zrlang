@@ -121,7 +121,8 @@ class StandardTypes:
 
     # Dependency loop...
     STRING_CLASS.parent = OBJECT_CLASS
-    OBJECT_CLASS.define(FunctionSymbol(name="toString", params=[], return_type=ObjectType(cls=STRING_CLASS)))
+    STRING_CLASS.define(FunctionSymbol(name="concat", params=[ParameterSymbol("other", ObjectType(OBJECT_CLASS))], return_type=ObjectType(STRING_CLASS)))
+    OBJECT_CLASS.define(FunctionSymbol(name="toString", params=[], return_type=ObjectType(STRING_CLASS)))
 
     ARRAY_CLASS = Class(
         name="Array",

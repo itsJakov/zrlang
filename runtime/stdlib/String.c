@@ -17,6 +17,25 @@ static void initWithCStrConstant(Instance* self, const char* cstr) {
     set_isConstant(self, 1);
 }
 
+static ZREString concat(Instance* self, Instance* other) {
+    Instance* strB = zre_call(other, "toString");
+
+    char* cstrA = get_cstr(self);
+    char* cstrB = get_cstr(strB);
+
+    size_t lenA = strlen(cstrA);
+    size_t lenB = strlen(cstrB);
+
+    char* concatenated = malloc(lenA + lenB + 1);
+    memcpy(concatenated, cstrA, lenA);
+    memcpy(concatenated + lenA, cstrB, lenB);
+    concatenated[lenA + lenB] = '\0';
+
+    Instance* result = zre_alloc(&String);
+    zre_call(result, "initWithCStr", concatenated);
+    return result;
+}
+
 // - Overrides
 static void deinit(Instance* self) {
     if (get_isConstant(self) == 0) {
@@ -56,7 +75,8 @@ static Method methods[] = {
         { "isEqual", isEqual },
 
         { "initWithCStr", initWithCStr },
-        { "initWithCStrConstant", initWithCStrConstant }
+        { "initWithCStrConstant", initWithCStrConstant },
+        { "concat", concat }
 };
 
 Class String = {
@@ -64,5 +84,5 @@ Class String = {
         .super = &Object,
         .fields = { .len = 2, fields },
         .staticMethods = { 0 },
-        .instanceMethods = { .len = 6, methods }
+        .instanceMethods = { .len = 7, methods }
 };
