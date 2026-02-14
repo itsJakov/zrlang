@@ -5,8 +5,6 @@
 extern Class SuperUser;
 
 static void greet(Instance* self, char* greeting) {
-    printf("%s, '%s' %s!\n", greeting, (char*)zre_field_get(self, "title"), (char*)zre_field_get(self, "username"));
-//    ((void (*)(Instance*, char*))zre_method_super(SuperUser.super, "greet"))(self, greeting);
 
 }
 

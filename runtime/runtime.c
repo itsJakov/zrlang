@@ -76,7 +76,7 @@ void zre_release(Instance* obj) {
     }
 }
 
-static uint64_t* storageForField(Instance* obj, const char* name) {
+uint64_t* zre_field_storage(Instance* obj, const char* name) {
     Class* currentCls = obj->cls;
     size_t offset = 0;
     while (currentCls != NULL) {
@@ -96,14 +96,29 @@ static uint64_t* storageForField(Instance* obj, const char* name) {
     return NULL;
 }
 
-uint64_t zre_field_get(Instance* obj, const char* name) {
-    uint64_t* fieldStorage = storageForField(obj, name);
-    return *fieldStorage;
+bool zre_field_get_bool(Instance* obj, const char* name) {
+    return *zre_field_storage(obj, name) != 0;
 }
 
-void zre_field_set(Instance* obj, const char* name, uint64_t value) {
-    uint64_t* fieldStorage = storageForField(obj, name);
-    *fieldStorage = value; // TODO: Should this retain kFieldTypeStrongObject?
+void zre_field_set_bool(Instance* obj, const char* name, bool value) {
+    *zre_field_storage(obj, name) = value ? 1 : 0;
+}
+
+uint64_t zre_field_get_int(Instance* obj, const char* name) {
+    return *zre_field_storage(obj, name);
+}
+
+void zre_field_set_int(Instance* obj, const char* name, uint64_t value) {
+    *zre_field_storage(obj, name) = value;
+}
+
+Instance* zre_field_get_obj(Instance* obj, const char* name) {
+    return *(Instance**)zre_field_storage(obj, name);
+}
+
+void zre_field_set_obj(Instance* obj, const char* name, Instance* value) {
+    Instance** storage = (Instance**)zre_field_storage(obj, name);
+    *storage = value;
 }
 
 MethodImpl zre_method_lookup(Class* cls, const char* name, bool required) {

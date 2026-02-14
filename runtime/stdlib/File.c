@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-ZRE_CLASS_FIELD(handle, FILE*)
+ZRE_FIELD_PTR(handle, FILE*)
 
 static void initWithPath(Instance* self, Instance* path) {
     const char* path_str = zstr_get(path);
@@ -19,8 +19,7 @@ static void initWithPath(Instance* self, Instance* path) {
 
 static void append(Instance* self, Instance* string) {
     FILE* file = get_handle(self);
-    char* cstr = (char*)zre_field_get(string, "cstr");
-    fprintf(file, "%s", cstr);
+    fprintf(file, "%s", zstr_get(string));
 }
 
 // - Overrides

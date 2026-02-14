@@ -6,12 +6,20 @@
     code \
     _Pragma("GCC diagnostic pop")
 
-#define ZRE_CLASS_FIELD(NAME, TYPE) \
+#define ZRE_FIELD_PTR(NAME, TYPE) \
     static inline TYPE get_ ##NAME (Instance* self) { \
-        return (TYPE)zre_field_get(self, #NAME); \
+        return (TYPE)zre_field_get_int(self, #NAME); \
     } \
     static inline void set_ ##NAME (Instance* self, TYPE value) { \
-        zre_field_set(self, #NAME, (uint64_t)value); \
+        zre_field_set_int(self, #NAME, (uint64_t)value); \
+    }
+
+#define ZRE_FIELD_OBJ(NAME) \
+    static inline Instance* get_ ##NAME (Instance* self) { \
+        return zre_field_get_obj(self, #NAME); \
+    } \
+    static inline void set_ ##NAME (Instance* self, Instance* value) { \
+        zre_field_set_obj(self, #NAME, value); \
     }
 
 #define zre_call_type(obj, name, return_type, ...) \
@@ -23,7 +31,7 @@
 
 // - String utilities
 #define zstr(s) zre_string_literal(s)
-#define zstr_get(s) ((const char*)zre_field_get(s, "cstr"))
+#define zstr_get(s) ((const char*)zre_field_get_obj(s, "cstr"))
 
 // - Hashing utilities
 uint64_t zre_hash(Instance* obj);

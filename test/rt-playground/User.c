@@ -4,8 +4,8 @@
 #include "zre.h"
 #include "zre_utils.h"
 
-ZRE_CLASS_FIELD(username, ZREString)
-ZRE_CLASS_FIELD(school, Instance*)
+ZRE_FIELD_OBJ(username)
+ZRE_FIELD_OBJ(school)
 
 static void init(Instance* self) {
     set_username(self, zstr("EmptyUser"));

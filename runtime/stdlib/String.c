@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-ZRE_CLASS_FIELD(cstr, char*)
-ZRE_CLASS_FIELD(isConstant, uint64_t)
+ZRE_FIELD_PTR(cstr, char*)
+ZRE_FIELD_PTR(isConstant, uint64_t)
 
 static void initWithCStr(Instance* self, char* cstr) {
     set_cstr(self, cstr);

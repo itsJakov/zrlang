@@ -5,7 +5,7 @@
 
 typedef XXH64_state_t HasherState;
 
-ZRE_CLASS_FIELD(state, HasherState*)
+ZRE_FIELD_PTR(state, HasherState*)
 
 static void init(Instance* self) {
     HasherState* state = XXH64_createState();

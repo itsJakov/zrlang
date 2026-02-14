@@ -6,7 +6,7 @@
 
 #include "zmap.h"
 
-ZRE_CLASS_FIELD(map, zmap_ObjObj*)
+ZRE_FIELD_PTR(map, zmap_ObjObj*)
 
 static uint32_t hash_obj(Instance* obj, uint32_t seed) {
     uint64_t hash = zre_hash(obj);

@@ -5,7 +5,7 @@
 #include "zre_utils.h"
 #include "stb_ds.h"
 
-ZRE_CLASS_FIELD(array, Instance**)
+ZRE_FIELD_PTR(array, Instance**)
 
 static void init(Instance* self) {
     zre_field_set(self, "array", 0);

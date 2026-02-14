@@ -8,6 +8,10 @@ from lang_ast import parse
 INPUT = """
 func main() {
     var logger = new Logger
+    logger.prefix = "== LOG =="
+    logger.limit = 5
+    logger.fileSupport = false
+    print(logger.prefix)
     logger.log(16, "This will only to stdout and file")
 }
 
@@ -20,8 +24,12 @@ func isEven(x: Int) -> Bool {
 }
 
 class Logger {
+    var limit: Int
+    var prefix: String
+    var fileSupport: Bool
+
     func shouldLog(level: Int) -> Bool {
-        if level < 5 {
+        if level < self.limit {
             return false
         }
         return isEven(level)

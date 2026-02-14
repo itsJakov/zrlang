@@ -56,8 +56,23 @@ Instance* zre_alloc(Class* cls);
 void zre_retain(Instance* obj);
 void zre_release(Instance* obj);
 
-uint64_t zre_field_get(Instance* obj, const char* name);
-void zre_field_set(Instance* obj, const char* name, uint64_t value);
+uint64_t* zre_field_storage(Instance* obj, const char* name);
+
+// - Convenience getters/setters for common types
+// TODO: Because of stupid casting, it's not guaranteed that these functions act the same as zre_field_storage
+bool zre_field_get_bool(Instance* obj, const char* name);
+uint64_t zre_field_get_int(Instance* obj, const char* name);
+Instance* zre_field_get_obj(Instance* obj, const char* name) ;
+void zre_field_set_bool(Instance* obj, const char* name, bool value);
+void zre_field_set_int(Instance* obj, const char* name, uint64_t value);
+void zre_field_set_obj(Instance* obj, const char* name, Instance* value);
+
+#define zre_field_set(obj, name, value) \
+    _Generic((value), \
+        bool: zre_field_set_bool, \
+        Instance*: zre_field_set_obj, \
+        default: zre_field_set_int \
+    )((obj), (name), (value))
 
 MethodImpl zre_method_lookup(Class* cls, const char* name, bool required);
 MethodImpl zre_method_super(Class* cls, const char* name);
