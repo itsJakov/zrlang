@@ -284,7 +284,9 @@ class SemanticAnalyzer:
                 self._error(f"Variable '{stmt.local}' is already defined in this scope", stmt)
 
         if isinstance(stmt, ExprStmt):
-            self._analyze_expression(stmt.expr)
+            expr_type = self._analyze_expression(stmt.expr)
+            if isinstance(expr_type, FunctionType):
+                self._error("Expression statement cannot be a function call without parentheses", stmt)
 
         if isinstance(stmt, AssignStmt):
             assignee_type = self._analyze_expression(stmt.assignee)
