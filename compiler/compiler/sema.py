@@ -275,10 +275,10 @@ class SemanticAnalyzer:
             if isinstance(member, ClassField):
                 field_type = self._resolve_type_name(member.type, member)
                 if not class_sym.define(PropertySymbol(name=member.name, type=field_type)):
-                    self._error(f"Symbol '{member.name}' is already defined in class '{cls.name}'", member)
+                    self._error(f"Member '{member.name}' is already defined in class '{cls.name}'", member)
             elif isinstance(member, FuncDecl):
                 if not class_sym.define(self._function_symbol(member)):
-                    self._error(f"Symbol '{member.name}' is already defined in class '{cls.name}'", member)
+                    self._error(f"Member '{member.name}' is already defined in class '{cls.name}'", member)
             else:
                 self._error(f"Unknown class member type: {type(member)}", member)
 
@@ -320,10 +320,53 @@ class SemanticAnalyzer:
             self._error("internal error: class not found in scope", cls_decl)
             sys.exit(1)
 
+        self._check_method_overrides(cls, cls_decl)
+
         self_type = ObjectType(cls=cls)
         for member in cls_decl.members:
             if isinstance(member, FuncDecl):
                 self._analyze_function(member, self_type=self_type)
+
+    def _check_method_overrides(self, cls: Class, cls_decl: ClassDecl):
+        if cls.parent is None:
+            return
+
+        for name, symbol in cls.symbols.items():
+            if not isinstance(symbol, FunctionSymbol):
+                continue
+
+            parent_symbol = cls.parent.lookup_member(name)
+            if parent_symbol is None:
+                continue # Not an override
+
+            if not isinstance(parent_symbol, FunctionSymbol):
+                self._error(f"Method '{name}' overrides a non-method member in parent class", cls_decl)
+                continue
+
+            if len(symbol.params) != len(parent_symbol.params):
+                self._error(
+                    f"Method '{name}' has {len(symbol.params)} parameter(s), "
+                    f"but parent method has {len(parent_symbol.params)}",
+                    func_decl
+                )
+                continue
+
+            # TODO: Does contravariance make sense for parameters?
+            # Check parameter types (contravariance: parent param type should be assignable to child param type)
+            for i, (child_param, parent_param) in enumerate(zip(symbol.params, parent_symbol.params)):
+                if not is_assignable_to(parent_param.type, child_param.type):
+                    self._error(
+                        f"Method '{name}' parameter {i + 1} type '{child_param.type}' is not compatible "
+                        f"with parent parameter type '{parent_param.type}'",
+                        func_decl
+                    )
+
+            # Check return type (covariance: child return type should be assignable to parent return type)
+            if not is_assignable_to(symbol.return_type, parent_symbol.return_type):
+                self._error(
+                    f"Method '{name}' return type '{symbol.return_type}' is not compatible "
+                    f"with parent return type '{parent_symbol.return_type}'",
+                )
 
     def _analyze_block(self, block: list[_Statement]):
         self.push_scope()
