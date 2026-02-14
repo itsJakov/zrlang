@@ -33,9 +33,11 @@ class LLVMIRGenerator:
             "declare ptr @zre_string_literal(ptr)",
             "declare void @_zr_print(ptr)",
             # TODO: Better way to handle built-in types?
-            "@String = external constant ptr"
-            "@Array = external constant ptr"
-            "@File = external constant ptr"
+            "@Object = external constant ptr",
+            "@String = external constant ptr",
+            "@Array = external constant ptr",
+            "@File = external constant ptr",
+            "@User = external constant ptr",
         ]
 
     def generate(self) -> str:
