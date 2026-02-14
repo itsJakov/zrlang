@@ -1,10 +1,15 @@
 #pragma once
 
+#if defined(__clang__)
 #define SUPPRESS_WARNINGS(code) \
-    _Pragma("GCC diagnostic push") \
-    _Pragma("GCC diagnostic ignored \"-Wdeprecated-non-prototype\"") \
+    _Pragma("clang diagnostic push") \
+    _Pragma("clang diagnostic ignored \"-Wdeprecated-non-prototype\"") \
     code \
-    _Pragma("GCC diagnostic pop")
+    _Pragma("clang diagnostic pop")
+#else
+// suprisingly GCC doesn't warn on this by default
+#define SUPPRESS_WARNINGS(code) code
+#endif
 
 #define ZRE_CLASS_FIELD(NAME, TYPE) \
     static inline TYPE get_ ##NAME (Instance* self) { \
