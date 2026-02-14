@@ -78,6 +78,13 @@ class LLVMIRGenerator:
     def _emit_class(self, cls: ClassDecl):
         self._emit(f"; ==== \"{cls.name}\" Class Definition ====")
 
+        fields = list(filter(lambda x: isinstance(x, ClassField), cls.members))
+        if fields:
+            self._emit(f"@{cls.name}.fields = constant [{len(fields)} x ptr] [")
+            self._emit_joined([f"\tptr {self._str_sym(field.name)}" for field in fields],
+                              separator=",\n")
+            self._emit("]")
+
         # TODO: Replace ptrtoint with actual LLVM struct types
         methods = list(filter(lambda x: isinstance(x, FuncDecl), cls.members))
         if methods:
@@ -89,9 +96,13 @@ class LLVMIRGenerator:
 
         self._emit(f"@{cls.name} = constant [8 x i64] [")
         self._emit(f"\ti64 ptrtoint(ptr {self._str_sym(cls.name)} to i64),")
-        self._emit(f"\ti64 0,")
+        self._emit("\ti64 0,")
 
-        self._emit("\ti64 0, i64 0,")
+        if fields:
+            self._emit(f"\ti64 {len(fields)}, i64 ptrtoint (ptr @{cls.name}.fields to i64),")
+        else:
+            self._emit(f"\ti64 0, i64 0,")
+
         self._emit("\ti64 0, i64 0,")
 
         if methods:
