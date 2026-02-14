@@ -10,6 +10,7 @@ func main() -> Int {
     var logger = new Logger
     logger.init()
     logger.threshold = 2
+    print(logger)
     
     logger.addService(new ConsoleLoggerService)
     logger.addService(new FileLoggerService)
@@ -69,6 +70,10 @@ class Logger {
     func testAllServices() {
         self.services.get(0).test()
         self.services.get(1).test()
+    }
+    
+    override func toString() -> String {
+        return super.toString().concat(" (Custom toString)")
     }
 }
 """

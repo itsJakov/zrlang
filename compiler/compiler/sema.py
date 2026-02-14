@@ -306,6 +306,8 @@ class SemanticAnalyzer:
 
         if self_type is not None:
             self.scope.define(ParameterSymbol(name="self", type=self_type))
+            if self_type.cls.parent is not None:
+                self.scope.define(ParameterSymbol(name="super", type=ObjectType(cls=self_type.cls.parent)))
 
         for param in func_decl.params:
             if not self.scope.define(ParameterSymbol(name=param.name, type=param.type)):
