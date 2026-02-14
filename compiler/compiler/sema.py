@@ -81,10 +81,12 @@ class FunctionSymbol(Symbol):
 
 @dataclass
 class Class(Symbol):
-    symbols: dict[str, FunctionSymbol | PropertySymbol]
+    ClassMemberSymbol = FunctionSymbol | PropertySymbol
+
+    symbols: dict[str, ClassMemberSymbol]
     parent: Optional['Class'] = None
 
-    def __init__(self, name: str, symbols: Optional[list[FunctionSymbol | PropertySymbol]] = None, parent: Optional['Class'] = None):
+    def __init__(self, name: str, symbols: Optional[list[ClassMemberSymbol]] = None, parent: Optional['Class'] = None):
         super().__init__(name)
         self.symbols = {}
         self.parent = parent
@@ -92,25 +94,25 @@ class Class(Symbol):
             for symbol in symbols:
                 self.symbols[symbol.name] = symbol
 
-    def define(self, symbol: FunctionSymbol | PropertySymbol):
+    def define(self, symbol: ClassMemberSymbol) -> bool:
         if symbol.name in self.symbols:
-            eprint(f"Symbol {symbol.name} already defined in class {self.name}")
+            return False
         self.symbols[symbol.name] = symbol
+        return True
 
     def is_subclass_of(self, other: 'Class') -> bool:
-        current = self
-        while current is not None:
-            if current.name == other.name:
-                return True
-            current = current.parent
+        if self == other:
+            return True
+        if self.parent is not None:
+            return self.parent.is_subclass_of(other)
         return False
 
-    def lookup_member(self, name: str) -> Optional[FunctionSymbol | PropertySymbol]:
-        current = self
-        while current is not None:
-            if name in current.symbols:
-                return current.symbols[name]
-            current = current.parent
+    def lookup_member(self, name: str) -> Optional[ClassMemberSymbol]:
+        symbol = self.symbols.get(name)
+        if symbol is not None:
+            return symbol
+        if self.parent is not None:
+            return self.parent.lookup_member(name)
         return None
 
 class StandardTypes:
@@ -272,9 +274,11 @@ class SemanticAnalyzer:
         for member in cls.members:
             if isinstance(member, ClassField):
                 field_type = self._resolve_type_name(member.type, member)
-                class_sym.define(PropertySymbol(name=member.name, type=field_type))
+                if not class_sym.define(PropertySymbol(name=member.name, type=field_type)):
+                    self._error(f"Symbol '{member.name}' is already defined in class '{cls.name}'", member)
             elif isinstance(member, FuncDecl):
-                class_sym.define(self._function_symbol(member))
+                if not class_sym.define(self._function_symbol(member)):
+                    self._error(f"Symbol '{member.name}' is already defined in class '{cls.name}'", member)
             else:
                 self._error(f"Unknown class member type: {type(member)}", member)
 
