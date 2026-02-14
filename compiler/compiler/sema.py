@@ -344,6 +344,7 @@ class SemanticAnalyzer:
 
             if isinstance(target_type, ObjectType):
                 member_symbol = target_type.cls.symbols.get(expr.member)
+                expr.symbol = member_symbol
                 if member_symbol is not None:
                     if isinstance(member_symbol, PropertySymbol):
                         return member_symbol.type

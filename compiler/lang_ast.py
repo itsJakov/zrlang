@@ -31,12 +31,15 @@ class StringExpr(_Expression):
     value: str
 
 @dataclass
-class SymbolExpr(_Expression):
-    name: str
+class _SymbolRefExpr(_Expression):
     symbol: 'Symbol' = field(init=False, default=None)
 
 @dataclass
-class MemberExpr(_Expression):
+class SymbolExpr(_SymbolRefExpr):
+    name: str
+
+@dataclass
+class MemberExpr(_SymbolRefExpr):
     expr: _Expression
     member: str
 
