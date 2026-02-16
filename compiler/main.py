@@ -1,9 +1,8 @@
 import subprocess
 import sys
 
-from compiler.llvm import LLVMIRGenerator
-from compiler.sema import SemanticAnalyzer
 from lang_ast import parse
+from compiler import SemanticAnalyzer, LLVMIRGenerator
 
 INPUT = """
 func main() -> Int {
