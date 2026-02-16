@@ -71,20 +71,11 @@ class LLVMIRGenerator:
     def _emit(self, line: str | list[str]):
         self._lines.append(line)
 
-    def _emit_joined(self, lines: Iterable[str], separator: str = ","):
-        self._lines.append(separator.join(lines))
-
     def _emit_function(self, func: FuncDecl):
         self._emit(f"; ==== \"{func.name}\" Function ====")
-
-        params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in func.params]
         name = "main" if func.name == "main" else f"_zr_{func.name}"
-        self._emit(f"define {self._type_to_ir(func.return_type)} @{name}({', '.join(params)}) {{")
-        self._temp_idx = 0
-        returns = self._emit_block(func.block)
-        if not returns:
-            self._emit("\tret void")
-        self._emit("}\n")
+        self._emit_function_impl(func, name, linkage="")
+        self._emit("")
 
     def _emit_class(self, cls: ClassDecl):
         self._current_class = cls
@@ -93,17 +84,16 @@ class LLVMIRGenerator:
         fields = list(filter(lambda x: isinstance(x, ClassField), cls.members))
         if fields:
             self._emit(f"@{cls.name}.fields = constant [{len(fields)} x {{ ptr, i64 }}] [")
-            self._emit_joined([f"\t{{ ptr, i64 }} {{ ptr {self._str_sym(field.name)}, i64 0 }}" for field in fields],
-                              separator=",\n")
+            self._emit(",\n".join(f"\t{{ ptr, i64 }} {{ ptr {self._str_sym(field.name)}, i64 0 }}"
+                                  for field in fields))
             self._emit("]")
 
         # TODO: Replace ptrtoint with actual LLVM struct types
         methods = list(filter(lambda x: isinstance(x, FuncDecl), cls.members))
         if methods:
             self._emit(f"@{cls.name}.instanceMethods = constant [{len(methods)} x {{ ptr, ptr }}] [")
-            self._emit_joined([f"\t{{ ptr, ptr }} {{ ptr {self._str_sym(method.name)}, ptr @{cls.name}.{method.name} }}"
-                               for method in methods],
-                              separator=",\n")
+            self._emit(",\n".join(f"\t{{ ptr, ptr }} {{ ptr {self._str_sym(method.name)}, ptr @{cls.name}.{method.name} }}"
+                                  for method in methods))
             self._emit("]")
 
         # -- Class table ---
@@ -120,6 +110,8 @@ class LLVMIRGenerator:
 
         if methods:
             self._emit(f"\ti64 {len(methods)}, i64 ptrtoint (ptr @{cls.name}.instanceMethods to i64)")
+        else:
+            self._emit("\ti64 0, i64 0")
         self._emit("]")
         # ---
 
@@ -130,11 +122,16 @@ class LLVMIRGenerator:
         self._current_class = None
 
     def _emit_method(self, cls: ClassDecl, method: FuncDecl):
-        params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in method.params]
-        params.insert(0, "ptr %self")
-        self._emit(f"define internal {self._type_to_ir(method.return_type)} @{cls.name}.{method.name}({', '.join(params)}) {{")
+        self._emit_function_impl(method, f"{cls.name}.{method.name}", linkage="internal", add_self=True)
+
+    def _emit_function_impl(self, func: FuncDecl, name: str, linkage: str = "", add_self: bool = False):
+        params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in func.params]
+        if add_self:
+            params.insert(0, "ptr %self")
+
+        self._emit(f"define {linkage} {self._type_to_ir(func.return_type)} @{name}({', '.join(params)}) {{")
         self._temp_idx = 0
-        returns = self._emit_block(method.block)
+        returns = self._emit_block(func.block)
         if not returns:
             self._emit("\tret void")
         self._emit("}")
@@ -335,7 +332,7 @@ class LLVMIRGenerator:
             return temp
 
         print(f"Expression '{expr}' is unknown")
-        return "67"
+        return "ERROR"
 
     def _type_to_ir(self, type: Type) -> str:
         if isinstance(type, VoidType):
@@ -350,4 +347,3 @@ class LLVMIRGenerator:
             return "ptr"
 
         fatal_error(f"Unknown type: {type}")
-
