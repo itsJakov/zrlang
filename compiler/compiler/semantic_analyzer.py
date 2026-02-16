@@ -77,14 +77,14 @@ class SemanticAnalyzer:
     def analyze(self, ast: list[_TopLevelDecl]) -> bool:
         # Pass 1: Collect function and class symbols
         for decl in ast:
+            symbol = None
             if isinstance(decl, FuncDecl):
-                func_symbol = self._function_symbol(decl)
-                if not self.scope.define(func_symbol):
-                    self._error(f"Function '{func_symbol.name}' is already defined", decl)
+                symbol = self._function_symbol(decl)
             elif isinstance(decl, ClassDecl):
-                class_symbol = self._class_symbol(decl)
-                if not self.scope.define(class_symbol):
-                    self._error(f"Class '{class_symbol.name}' is already defined", decl)
+                symbol = self._class_symbol(decl)
+
+            if not self.scope.define(symbol):
+                self._error(f"Symbol '{symbol.name}' is already defined", decl)
 
         # Pass 2: Resolve class hierarchies
         for decl in ast:
