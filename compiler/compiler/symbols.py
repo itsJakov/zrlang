@@ -1,7 +1,8 @@
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Union
 
+from lang_ast import FuncDecorator
 from .types import Type, FunctionType
 
 
@@ -30,6 +31,7 @@ class FunctionSymbol(Symbol):
     # FunctionSymbol represents both methods and standalone functions. Not a good idea probably
     params: list[ParameterSymbol]
     return_type: Type
+    decorators: set[FuncDecorator] = field(default_factory=set)
 
     def function_type(self) -> FunctionType:
         return FunctionType(
@@ -42,7 +44,7 @@ class FunctionSymbol(Symbol):
 class Class(Symbol):
     ClassMemberSymbol = Union[FunctionSymbol, PropertySymbol]
 
-    symbols: dict[str, ClassMemberSymbol]
+    members: dict[str, ClassMemberSymbol]
     parent: Optional['Class'] = None
 
     def __init__(
@@ -52,16 +54,16 @@ class Class(Symbol):
         parent: Optional['Class'] = None
     ):
         super().__init__(name)
-        self.symbols = {}
+        self.members = {}
         self.parent = parent
         if symbols:
             for symbol in symbols:
-                self.symbols[symbol.name] = symbol
+                self.members[symbol.name] = symbol
 
     def define(self, symbol: ClassMemberSymbol) -> bool:
-        if symbol.name in self.symbols:
+        if symbol.name in self.members:
             return False
-        self.symbols[symbol.name] = symbol
+        self.members[symbol.name] = symbol
         return True
 
     def is_subclass_of(self, other: 'Class') -> bool:
@@ -72,7 +74,7 @@ class Class(Symbol):
         return False
 
     def lookup_member(self, name: str) -> Optional[ClassMemberSymbol]:
-        symbol = self.symbols.get(name)
+        symbol = self.members.get(name)
         if symbol is not None:
             return symbol
         if self.parent is not None:

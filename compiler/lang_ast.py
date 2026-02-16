@@ -139,6 +139,8 @@ class ClassDecl(_TopLevelDecl):
     super: Optional[str]
     members: list[_ClassMember]
 
+    cls: 'Class' = field(init=False, default=None)
+
 # Method / Function
 class FuncDecorator(Enum):
     OVERRIDE = "override"
@@ -147,6 +149,7 @@ class FuncDecorator(Enum):
 class FuncParam(_Ast):
     name: str
     type_name: str
+
     type: 'Type' = field(init=False, default=None)
 
 @dataclass
@@ -155,8 +158,10 @@ class FuncDecl(_TopLevelDecl, _ClassMember):
     name: str
     params: list[FuncParam]
     return_type_name: Optional[str]
-    return_type: 'Type' = field(init=False, default=None)
     block: list[_Statement]
+
+    return_type: 'Type' = field(init=False, default=None)
+
 
 class ToAst(Transformer):
     def block(self, l: list[_Statement]) -> list[_Statement]:

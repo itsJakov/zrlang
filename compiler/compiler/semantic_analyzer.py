@@ -100,29 +100,31 @@ class SemanticAnalyzer:
 
         return self.error_count == 0
 
-    def _function_symbol(self, func: FuncDecl) -> FunctionSymbol:
+    def _function_symbol(self, func_decl: FuncDecl) -> FunctionSymbol:
         params = []
-        for param in func.params:
+        for param in func_decl.params:
             param.type = self._resolve_type_name(param.type_name, param)
             params.append(ParameterSymbol(name=param.name, type=param.type))
 
-        func.return_type = VoidType()
-        if func.return_type_name is not None:
-            func.return_type = self._resolve_type_name(func.return_type_name, func)
+        func_decl.return_type = VoidType()
+        if func_decl.return_type_name is not None:
+            func_decl.return_type = self._resolve_type_name(func_decl.return_type_name, func_decl)
 
-        return FunctionSymbol(name=func.name, params=params, return_type=func.return_type)
+        return FunctionSymbol(name=func_decl.name, params=params, return_type=func_decl.return_type, decorators=func_decl.decorators)
 
-    def _class_symbol(self, cls: ClassDecl) -> Class:
-        class_sym = Class(name=cls.name)
+    def _class_symbol(self, cls_decl: ClassDecl) -> Class:
+        class_sym = Class(name=cls_decl.name)
+        cls_decl.cls = class_sym  # Link AST node to its symbol
 
-        for member in cls.members:
+        for member in cls_decl.members:
             if isinstance(member, ClassField):
-                field_type = self._resolve_type_name(member.type, member)
-                if not class_sym.define(PropertySymbol(name=member.name, type=field_type)):
-                    self._error(f"Member '{member.name}' is already defined in class '{cls.name}'", member)
+                if not class_sym.define(PropertySymbol(name=member.name, type=self._resolve_type_name(member.type, member))):
+                    self._error(f"Member '{member.name}' is already defined in class '{cls_decl.name}'", member)
+
             elif isinstance(member, FuncDecl):
                 if not class_sym.define(self._function_symbol(member)):
-                    self._error(f"Member '{member.name}' is already defined in class '{cls.name}'", member)
+                    self._error(f"Member '{member.name}' is already defined in class '{cls_decl.name}'", member)
+
             else:
                 self._error(f"Unknown class member type: {type(member)}", member)
 
@@ -165,14 +167,10 @@ class SemanticAnalyzer:
         self._pop_scope()
 
     def _analyze_class(self, cls_decl: ClassDecl):
-        cls = self.scope.lookup(cls_decl.name)
-        if not isinstance(cls, Class):
-            self._error("internal error: class not found in scope", cls_decl)
-            sys.exit(1)
-
+        cls = cls_decl.cls
         self._check_method_overrides(cls, cls_decl)
 
-        self_type = ObjectType(cls=cls)
+        self_type = ObjectType(cls)
         for member in cls_decl.members:
             if isinstance(member, FuncDecl):
                 self._analyze_function(member, self_type=self_type)
@@ -264,6 +262,11 @@ class SemanticAnalyzer:
             value_type = self._analyze_expression(stmt.value)
             if assignee_type is None or value_type is None:
                 return
+
+            if isinstance(stmt.assignee, SymbolExpr) and stmt.assignee.name == "self":
+                self._error("Cannot assign to 'self'", stmt)
+                return
+
             if not is_assignable_to(value_type, assignee_type):
                 self._error(
                     f"Type mismatch in assignment: cannot assign {value_type} to {assignee_type}",
@@ -274,6 +277,7 @@ class SemanticAnalyzer:
             condition_type = self._analyze_expression(stmt.condition)
             if condition_type is not None and not isinstance(condition_type, BoolType):
                 self._error(f"If condition must be of type Bool, got {condition_type}", stmt)
+
             self._analyze_block(stmt.block)
             if stmt.else_block is not None:
                 self._analyze_block(stmt.else_block)
@@ -352,7 +356,7 @@ class SemanticAnalyzer:
                 )
                 return FunctionType(
                     param_types=None,
-                    return_type=ObjectType(cls=StandardTypes.OBJECT_CLASS)
+                    return_type=ObjectType(StandardTypes.OBJECT_CLASS)
                 )
 
             self._error(f"Undefined member {expr.member} on class {target_type.cls.name}", expr)
