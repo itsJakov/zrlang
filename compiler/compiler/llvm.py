@@ -1,17 +1,19 @@
 import sys
 from typing import Iterable, Optional, NoReturn
 
-from compiler.sema import VoidType, BoolType, IntType, ObjectType, FunctionType, LocalSymbol, ParameterSymbol, \
-    PropertySymbol
-from lang_ast import ClassDecl, ClassField, FuncDecl, ReturnStmt, _Statement, IntExpr, _Expression, BoolExpr, \
-    StringExpr, BinaryExpr, BinaryOperation, SymbolExpr, CallExpr, MemberExpr, ExprStmt, IfStmt, VarStmt, AllocExpr, \
-    AssignStmt, _TopLevelDecl, _SymbolRefExpr
-
-from .sema import Type
+from compiler.types import VoidType, BoolType, IntType, ObjectType, FunctionType, Type
+from compiler.symbols import LocalSymbol, ParameterSymbol, PropertySymbol
+from lang_ast import (
+    ClassDecl, ClassField, FuncDecl, ReturnStmt, _Statement, IntExpr,
+    _Expression, BoolExpr, StringExpr, BinaryExpr, BinaryOperation,
+    SymbolExpr, CallExpr, MemberExpr, ExprStmt, IfStmt, VarStmt,
+    AllocExpr, AssignStmt, _TopLevelDecl, _SymbolRefExpr
+)
 
 
 def fatal_error(msg: str) -> NoReturn:
     sys.exit(f"internal error: {msg}\nThis is a bug in the compiler, semantic analysis should've caught this!")
+
 
 class LLVMIRGenerator:
     def __init__(self, ast: list[_TopLevelDecl]):
@@ -33,8 +35,8 @@ class LLVMIRGenerator:
             "declare ptr @zre_method_super(ptr, ptr)",
             "declare ptr @zre_method_virtual(ptr, ptr)",
             "declare ptr @zre_string_literal(ptr)",
-            "declare void @_zr_print(ptr)",
             # TODO: Better way to handle built-in types?
+            "declare void @_zr_print(ptr)",
             "@Object = external constant ptr",
             "@String = external constant ptr",
             "@Array = external constant ptr",
@@ -69,20 +71,11 @@ class LLVMIRGenerator:
     def _emit(self, line: str | list[str]):
         self._lines.append(line)
 
-    def _emit_joined(self, lines: Iterable[str], separator: str = ","):
-        self._lines.append(separator.join(lines))
-
     def _emit_function(self, func: FuncDecl):
         self._emit(f"; ==== \"{func.name}\" Function ====")
-
-        params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in func.params]
         name = "main" if func.name == "main" else f"_zr_{func.name}"
-        self._emit(f"define {self._type_to_ir(func.return_type)} @{name}({', '.join(params)}) {{")
-        self._temp_idx = 0
-        returns = self._emit_block(func.block)
-        if not returns:
-            self._emit("\tret void")
-        self._emit("}\n")
+        self._emit_function_impl(func, name, linkage="")
+        self._emit("")
 
     def _emit_class(self, cls: ClassDecl):
         self._current_class = cls
@@ -91,17 +84,16 @@ class LLVMIRGenerator:
         fields = list(filter(lambda x: isinstance(x, ClassField), cls.members))
         if fields:
             self._emit(f"@{cls.name}.fields = constant [{len(fields)} x {{ ptr, i64 }}] [")
-            self._emit_joined([f"\t{{ ptr, i64 }} {{ ptr {self._str_sym(field.name)}, i64 0 }}" for field in fields],
-                              separator=",\n")
+            self._emit(",\n".join(f"\t{{ ptr, i64 }} {{ ptr {self._str_sym(field.name)}, i64 0 }}"
+                                  for field in fields))
             self._emit("]")
 
         # TODO: Replace ptrtoint with actual LLVM struct types
         methods = list(filter(lambda x: isinstance(x, FuncDecl), cls.members))
         if methods:
             self._emit(f"@{cls.name}.instanceMethods = constant [{len(methods)} x {{ ptr, ptr }}] [")
-            self._emit_joined([f"\t{{ ptr, ptr }} {{ ptr {self._str_sym(method.name)}, ptr @{cls.name}.{method.name} }}"
-                               for method in methods],
-                              separator=",\n")
+            self._emit(",\n".join(f"\t{{ ptr, ptr }} {{ ptr {self._str_sym(method.name)}, ptr @{cls.name}.{method.name} }}"
+                                  for method in methods))
             self._emit("]")
 
         # -- Class table ---
@@ -112,12 +104,14 @@ class LLVMIRGenerator:
         if fields:
             self._emit(f"\ti64 {len(fields)}, i64 ptrtoint (ptr @{cls.name}.fields to i64),")
         else:
-            self._emit(f"\ti64 0, i64 0,")
+            self._emit("\ti64 0, i64 0,")
 
         self._emit("\ti64 0, i64 0,")
 
         if methods:
             self._emit(f"\ti64 {len(methods)}, i64 ptrtoint (ptr @{cls.name}.instanceMethods to i64)")
+        else:
+            self._emit("\ti64 0, i64 0")
         self._emit("]")
         # ---
 
@@ -128,11 +122,16 @@ class LLVMIRGenerator:
         self._current_class = None
 
     def _emit_method(self, cls: ClassDecl, method: FuncDecl):
-        params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in method.params]
-        params.insert(0, f"ptr %self")
-        self._emit(f"define internal {self._type_to_ir(method.return_type)} @{cls.name}.{method.name}({", ".join(params)}) {{")
+        self._emit_function_impl(method, f"{cls.name}.{method.name}", linkage="internal", add_self=True)
+
+    def _emit_function_impl(self, func: FuncDecl, name: str, linkage: str = "", add_self: bool = False):
+        params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in func.params]
+        if add_self:
+            params.insert(0, "ptr %self")
+
+        self._emit(f"define {linkage} {self._type_to_ir(func.return_type)} @{name}({', '.join(params)}) {{")
         self._temp_idx = 0
-        returns = self._emit_block(method.block)
+        returns = self._emit_block(func.block)
         if not returns:
             self._emit("\tret void")
         self._emit("}")
@@ -218,7 +217,8 @@ class LLVMIRGenerator:
 
     def _emit_expr(self, expr: _Expression, local: Optional[str] = None) -> str:
         def temp_local() -> str:
-            if local is not None: return f"%{local}"
+            if local is not None:
+                return f"%{local}"
             sym = f"%.tmp.{self._temp_idx}"
             self._temp_idx += 1
             return sym
@@ -284,7 +284,7 @@ class LLVMIRGenerator:
 
                     super_class = self._current_class.super or "Object"
                     self._emit(f"\t{fn_temp} = call ptr @zre_method_super(ptr @{super_class}, ptr {self._str_sym(call.callee.member)}) ; {call.callee.member}")
-                    args.insert(0, f"ptr %self")
+                    args.insert(0, "ptr %self")
                 else:
                     callee = self._emit_expr(call.callee.expr)
                     self._emit(f"\t{fn_temp} = call ptr @zre_method_virtual(ptr {callee}, ptr {self._str_sym(call.callee.member)}) ; {call.callee.member}")
@@ -293,6 +293,7 @@ class LLVMIRGenerator:
                 call = f"call {self._type_to_ir(function.return_type)} {fn_temp}({", ".join(args)})"
             else:
                 fatal_error(f"Statement '{call.callee}' is not callable")
+
             if function.return_type == VoidType():
                 self._emit(f"\t{call}")
                 return ""
@@ -303,7 +304,7 @@ class LLVMIRGenerator:
 
         elif isinstance(expr, BinaryExpr):
             if expr.op == BinaryOperation.AND or expr.op == BinaryOperation.OR:
-                fatal_error(f"Logical operators AND and OR are not implemented")
+                fatal_error("Logical operators AND and OR are not implemented")
 
             lhs = self._emit_expr(expr.lhs)
             rhs = self._emit_expr(expr.rhs)
@@ -331,7 +332,7 @@ class LLVMIRGenerator:
             return temp
 
         print(f"Expression '{expr}' is unknown")
-        return "67"
+        return "ERROR"
 
     def _type_to_ir(self, type: Type) -> str:
         if isinstance(type, VoidType):
