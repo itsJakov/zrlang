@@ -124,14 +124,14 @@ class LLVMIRGenerator:
     def _emit_method(self, cls: ClassDecl, method: FuncDecl):
         self._emit_function_impl(method, f"{cls.name}.{method.name}", linkage="internal", add_self=True)
 
-    def _emit_function_impl(self, func: FuncDecl, name: str, linkage: str = "", add_self: bool = False):
-        params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in func.params]
+    def _emit_function_impl(self, func_decl: FuncDecl, name: str, linkage: str = "", add_self: bool = False):
+        params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in func_decl.params]
         if add_self:
             params.insert(0, "ptr %self")
 
-        self._emit(f"define {linkage} {self._type_to_ir(func.return_type)} @{name}({', '.join(params)}) {{")
+        self._emit(f"define {linkage} {self._type_to_ir(func_decl.sym.return_type)} @{name}({', '.join(params)}) {{")
         self._temp_idx = 0
-        returns = self._emit_block(func.block)
+        returns = self._emit_block(func_decl.block)
         if not returns:
             self._emit("\tret void")
         self._emit("}")

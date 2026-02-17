@@ -75,78 +75,57 @@ class SemanticAnalyzer:
         return VoidType()
 
     def analyze(self, ast: list[_TopLevelDecl]) -> bool:
-        # Pass 1: Collect function and class symbols
-        for decl in ast:
-            symbol = None
-            if isinstance(decl, FuncDecl):
-                symbol = self._function_symbol(decl)
-            elif isinstance(decl, ClassDecl):
-                symbol = self._class_symbol(decl)
+        func_decls = [decl for decl in ast if isinstance(decl, FuncDecl)]
+        class_decls = [decl for decl in ast if isinstance(decl, ClassDecl)]
 
+        # Pass 1: Collect Class symbols
+        for cls_decl in class_decls:
+            symbol = Class(name=cls_decl.name)
+            cls_decl.cls = symbol
             if not self.scope.define(symbol):
-                self._error(f"Symbol '{symbol.name}' is already defined", decl)
+                self._error(f"Symbol '{symbol.name}' is already defined", cls_decl)
 
         # Pass 2: Resolve class hierarchies
         for decl in ast:
             if isinstance(decl, ClassDecl):
                 self._resolve_class_superclass(decl)
 
-        # Pass 3: Verify methods
+        # Functions and methods must be collected after class hierarchies are resolved
+        # Because Functions and Methods need to know custom type information (for parameters and return types)
+        # i.e. Types are available after pass 2!
+
+        # Pass 3: Collect Class member symbols (fields and methods)
+        for cls_decl in class_decls:
+            self._collect_class_members(cls_decl)
+
+        # Pass 4: Collect Function symbols
+        for func_decl in func_decls:
+            symbol = FunctionSymbol(name=func_decl.name, params=[], return_type=VoidType())
+            func_decl.sym = symbol
+            self._analyze_function_signature(func_decl)
+            if not self.scope.define(symbol):
+                self._error(f"Symbol '{symbol.name}' is already defined", func_decl)
+
+        # After passes 3 and 4, all function signatures are resolved
+        # So now can finally check function bodies with full type information
+        # i.e. Functions/Methods are available after pass 4!
+
+        # Pass 5: Verify functions and methods bodies
         for decl in ast:
             if isinstance(decl, FuncDecl):
-                self._analyze_function(decl)
+                self._analyze_function_body(decl)
             elif isinstance(decl, ClassDecl):
-                self._analyze_class(decl)
+                self._analyze_class_method_bodies(decl)
 
         return self.error_count == 0
 
-    def _function_symbol(self, func_decl: FuncDecl) -> FunctionSymbol:
-        params = []
-        for param in func_decl.params:
-            param.type = self._resolve_type_name(param.type_name, param)
-            params.append(ParameterSymbol(name=param.name, type=param.type))
-
-        func_decl.return_type = VoidType()
-        if func_decl.return_type_name is not None:
-            func_decl.return_type = self._resolve_type_name(func_decl.return_type_name, func_decl)
-
-        return FunctionSymbol(name=func_decl.name, params=params, return_type=func_decl.return_type, decorators=func_decl.decorators)
-
-    def _class_symbol(self, cls_decl: ClassDecl) -> Class:
-        class_sym = Class(name=cls_decl.name)
-        cls_decl.cls = class_sym  # Link AST node to its symbol
-
-        for member in cls_decl.members:
-            if isinstance(member, ClassField):
-                if not class_sym.define(FieldSymbol(name=member.name, type=self._resolve_type_name(member.type, member), is_static=False)):
-                    self._error(f"Member '{member.name}' is already defined in class '{cls_decl.name}'", member)
-
-            elif isinstance(member, FuncDecl):
-                func = self._function_symbol(member)
-                method = MethodSymbol(
-                    name=func.name,
-                    is_static=False,
-                    params=func.params,
-                    return_type=func.return_type,
-                    decorators=func.decorators
-                )
-
-                if not class_sym.define(method):
-                    self._error(f"Member '{member.name}' is already defined in class '{cls_decl.name}'", member)
-
-            else:
-                self._error(f"Unknown class member type: {type(member)}", member)
-
-        return class_sym
-
     def _resolve_class_superclass(self, cls_decl: ClassDecl):
         """Resolve parent class for a class."""
-        class_sym = self.scope.lookup(cls_decl.name)
-        if not isinstance(class_sym, Class):
-            return
+        cls = cls_decl.cls
 
+        # If no superclass is specified, set parent to Object
+        cls.parent = StandardTypes.OBJECT_CLASS
         if cls_decl.super is None:
-            class_sym.parent = StandardTypes.OBJECT_CLASS
             return
 
         parent_sym = self.scope.lookup(cls_decl.super)
@@ -157,34 +136,67 @@ class SemanticAnalyzer:
             self._error(f"'{cls_decl.super}' is not a class", cls_decl)
             return
 
-        class_sym.parent = parent_sym
+        cls.parent = parent_sym
 
-    def _analyze_function(self, func_decl: FuncDecl, self_type: Optional[ObjectType] = None):
+    def _analyze_function_signature(self, func_decl: FuncDecl):
+        func_sym: FunctionSymbol = func_decl.sym
+        func_sym.return_type = self._resolve_type_name(func_decl.return_type_name, func_decl) if func_decl.return_type_name else VoidType()
+
+        for param in func_decl.params:
+            param_sym = ParameterSymbol(name=param.name, type=self._resolve_type_name(param.type_name, param))
+            param.type = param_sym.type
+            func_sym.params.append(param_sym)
+
+    def _collect_class_members(self, cls_decl: ClassDecl):
+        for member in cls_decl.members:
+            if isinstance(member, ClassField):
+                field_type = self._resolve_type_name(member.type, member)
+                if not cls_decl.cls.define(FieldSymbol(name=member.name, type=field_type, is_static=False)):
+                    self._error(f"Member '{member.name}' is already defined in class '{cls_decl.name}'", member)
+
+            elif isinstance(member, FuncDecl):
+                method_symbol = MethodSymbol(
+                    name=member.name,
+                    is_static=False,
+                    params=[],
+                    return_type=VoidType()
+                )
+                member.sym = method_symbol
+                self._analyze_function_signature(member)
+
+                if not cls_decl.cls.define(method_symbol):
+                    self._error(f"Member '{member.name}' is already defined in class '{cls_decl.name}'", member)
+
+            else:
+                self._error(f"Unknown class member type: {type(member)}", member)
+
+    def _analyze_function_body(self, func_decl: FuncDecl, self_type: Optional[ObjectType] = None):
         self._push_scope()
+        func_sym: FunctionSymbol = func_decl.sym
 
         if self_type is not None:
             self.scope.define(ParameterSymbol(name="self", type=self_type))
             if self_type.cls.parent is not None:
                 self.scope.define(ParameterSymbol(name="super", type=ObjectType(cls=self_type.cls.parent)))
 
-        for param in func_decl.params:
-            if not self.scope.define(ParameterSymbol(name=param.name, type=param.type)):
+        for param in func_sym.params:
+            if not self.scope.define(param):
                 self._error(f"Parameter '{param.name}' is already defined", param)
-        self.scope.return_type = func_decl.return_type
+        self.scope.return_type = func_sym.return_type
 
         self._analyze_block(func_decl.block)
         self._pop_scope()
 
-    def _analyze_class(self, cls_decl: ClassDecl):
-        cls = cls_decl.cls
-        self._check_method_overrides(cls, cls_decl)
+    def _analyze_class_method_bodies(self, cls_decl: ClassDecl):
+        self._check_method_overrides(cls_decl)
 
-        self_type = ObjectType(cls)
+        self_type = ObjectType(cls_decl.cls)
         for member in cls_decl.members:
             if isinstance(member, FuncDecl):
-                self._analyze_function(member, self_type=self_type)
+                self._analyze_function_body(member, self_type=self_type)
 
-    def _check_method_overrides(self, cls: Class, cls_decl: ClassDecl):
+    def _check_method_overrides(self, cls_decl: ClassDecl):
+        cls = cls_decl.cls
         for member in cls_decl.members:
             if not isinstance(member, FuncDecl):
                 continue
@@ -220,6 +232,8 @@ class SemanticAnalyzer:
                     func_decl
                 )
                 continue
+
+            # TODO: Should contravariance and covariance be allowed for parameters and return types?
 
             # Check parameter types (contravariance: parent param type should be assignable to child param type)
             for i, (child_param, parent_param) in enumerate(zip(method.params, parent_method.params)):

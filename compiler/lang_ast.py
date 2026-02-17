@@ -160,7 +160,7 @@ class FuncDecl(_TopLevelDecl, _ClassMember):
     return_type_name: Optional[str]
     block: list[_Statement]
 
-    return_type: 'Type' = field(init=False, default=None)
+    sym: 'FunctionSymbol' = field(init=False, default=None)
 
 
 class ToAst(Transformer):
