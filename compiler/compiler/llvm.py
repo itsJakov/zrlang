@@ -89,11 +89,12 @@ class LLVMIRGenerator:
             self._emit("]")
 
         # TODO: Replace ptrtoint with actual LLVM struct types
-        methods = list(filter(lambda x: isinstance(x, FuncDecl), cls.members))
-        if methods:
-            self._emit(f"@{cls.name}.instanceMethods = constant [{len(methods)} x {{ ptr, ptr }}] [")
+        instance_methods = list(filter(lambda x: isinstance(x, FuncDecl) and not x.sym.is_static, cls.members))
+        static_methods = list(filter(lambda x: isinstance(x, FuncDecl) and x.sym.is_static, cls.members))
+        if instance_methods:
+            self._emit(f"@{cls.name}.instanceMethods = constant [{len(instance_methods)} x {{ ptr, ptr }}] [")
             self._emit(",\n".join(f"\t{{ ptr, ptr }} {{ ptr {self._str_sym(method.name)}, ptr @{cls.name}.{method.name} }}"
-                                  for method in methods))
+                                  for method in instance_methods))
             self._emit("]")
 
         # -- Class table ---
@@ -108,21 +109,26 @@ class LLVMIRGenerator:
 
         self._emit("\ti64 0, i64 0,")
 
-        if methods:
-            self._emit(f"\ti64 {len(methods)}, i64 ptrtoint (ptr @{cls.name}.instanceMethods to i64)")
+        if instance_methods:
+            self._emit(f"\ti64 {len(instance_methods)}, i64 ptrtoint (ptr @{cls.name}.instanceMethods to i64)")
         else:
             self._emit("\ti64 0, i64 0")
         self._emit("]")
         # ---
 
-        if methods:
-            self._emit(f"\n; ==== \"{cls.name}\" Methods ====")
-            for method in methods:
+        if instance_methods:
+            self._emit(f"\n; ==== \"{cls.name}\" Instance Methods ====")
+            for method in instance_methods:
                 self._emit_method(cls, method)
         self._current_class = None
 
+        if static_methods:
+            self._emit(f"\n; ==== \"{cls.name}\" Static Methods ====")
+            for method in static_methods:
+                self._emit_method(cls, method)
+
     def _emit_method(self, cls: ClassDecl, method: FuncDecl):
-        self._emit_function_impl(method, f"{cls.name}.{method.name}", linkage="internal", add_self=True)
+        self._emit_function_impl(method, f"{cls.name}.{method.name}", linkage="internal", add_self=not method.sym.is_static)
 
     def _emit_function_impl(self, func_decl: FuncDecl, name: str, linkage: str = "", add_self: bool = False):
         params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in func_decl.params]
@@ -261,6 +267,7 @@ class LLVMIRGenerator:
             return temp
 
         elif isinstance(expr, CallExpr):
+            # TODO: This code is so ugly, I haaaaate it. Probably the ugliest part of the entire compiler
             call = expr
             args = [f"{self._type_to_ir(arg.type)} {self._emit_expr(arg)}" for arg in call.args]
 
@@ -278,27 +285,30 @@ class LLVMIRGenerator:
                 fn_temp = temp_local()
 
                 if isinstance(call.callee.target, SymbolExpr) and isinstance(call.callee.target.symbol, ParameterSymbol) and call.callee.target.symbol.name == "super":
-                    # Such an ugly ugly hack to call the superclass method
+                    # Super method call
                     if self._current_class is None:
                         fatal_error("No class or superclass")
 
                     super_class = self._current_class.super or "Object"
                     self._emit(f"\t{fn_temp} = call ptr @zre_method_super(ptr @{super_class}, ptr {self._str_sym(call.callee.member)}) ; {call.callee.member}")
                     args.insert(0, "ptr %self")
+                    call = f"call {self._type_to_ir(function.return_type)} {fn_temp}({", ".join(args)})"
                 elif isinstance(call.callee.target, SymbolExpr) and isinstance(call.callee.target.symbol, Class):
+                    # Static method call
+                    call = f"call {self._type_to_ir(function.return_type)} @{call.callee.target.symbol.name}.{call.callee.member}({", ".join(args)})"
                     pass
                 else:
+                    # Regular member (virtual) method call
                     callee = self._emit_expr(call.callee.target)
                     self._emit(f"\t{fn_temp} = call ptr @zre_method_virtual(ptr {callee}, ptr {self._str_sym(call.callee.member)}) ; {call.callee.member}")
                     args.insert(0, f"ptr {callee}")
-
-                call = f"call {self._type_to_ir(function.return_type)} {fn_temp}({", ".join(args)})"
+                    call = f"call {self._type_to_ir(function.return_type)} {fn_temp}({", ".join(args)})"
             else:
                 fatal_error(f"Statement '{call.callee}' is not callable")
 
             if function.return_type == VoidType():
                 self._emit(f"\t{call}")
-                return ""
+                return "ERROR"
             else:
                 temp = temp_local()
                 self._emit(f"\t{temp} = {call}")
