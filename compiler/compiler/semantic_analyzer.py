@@ -9,11 +9,11 @@ from lang_ast import (
 )
 from .types import (
     Type, VoidType, BoolType, IntType, ObjectType, FunctionType,
-    is_assignable_to
+    is_assignable_to, ClassType
 )
 from .symbols import (
-    LocalSymbol, PropertySymbol, ParameterSymbol,
-    FunctionSymbol, Class
+    LocalSymbol, FieldSymbol, ParameterSymbol,
+    FunctionSymbol, Class, MethodSymbol
 )
 from .scope import Scope
 from .standard_types import StandardTypes
@@ -118,11 +118,20 @@ class SemanticAnalyzer:
 
         for member in cls_decl.members:
             if isinstance(member, ClassField):
-                if not class_sym.define(PropertySymbol(name=member.name, type=self._resolve_type_name(member.type, member))):
+                if not class_sym.define(FieldSymbol(name=member.name, type=self._resolve_type_name(member.type, member), is_static=False)):
                     self._error(f"Member '{member.name}' is already defined in class '{cls_decl.name}'", member)
 
             elif isinstance(member, FuncDecl):
-                if not class_sym.define(self._function_symbol(member)):
+                func = self._function_symbol(member)
+                method = MethodSymbol(
+                    name=func.name,
+                    is_static=False,
+                    params=func.params,
+                    return_type=func.return_type,
+                    decorators=func.decorators
+                )
+
+                if not class_sym.define(method):
                     self._error(f"Member '{member.name}' is already defined in class '{cls_decl.name}'", member)
 
             else:
@@ -182,13 +191,13 @@ class SemanticAnalyzer:
             func_decl: FuncDecl = member
             is_override = FuncDecorator.OVERRIDE in func_decl.decorators
 
-            symbol = cls.lookup_member(member.name)
-            if symbol is None or not isinstance(symbol, FunctionSymbol):
+            method = cls.lookup_member(member.name)
+            if method is None or not isinstance(method, MethodSymbol):
                 continue  # Should never happen
 
             # Error 1: Method has override keyword but does not override any parent method
-            parent_symbol = cls.parent.lookup_member(func_decl.name) if cls.parent else None
-            if parent_symbol is None:
+            parent_method = cls.parent.lookup_member(func_decl.name) if cls.parent else None
+            if parent_method is None or not isinstance(parent_method, MethodSymbol):
                 if is_override:
                     self._error(
                         f"Method '{func_decl.name}' has 'override' but does not override any parent method",
@@ -204,28 +213,28 @@ class SemanticAnalyzer:
                 )
 
             # Error 3: Method signature does not match parent method signature
-            if len(symbol.params) != len(parent_symbol.params):
+            if len(method.params) != len(parent_method.params):
                 self._error(
-                    f"Method '{symbol.name}' has {len(symbol.params)} parameter(s), "
-                    f"but parent method has {len(parent_symbol.params)}",
+                    f"Method '{method.name}' has {len(method.params)} parameter(s), "
+                    f"but parent method has {len(parent_method.params)}",
                     func_decl
                 )
                 continue
 
             # Check parameter types (contravariance: parent param type should be assignable to child param type)
-            for i, (child_param, parent_param) in enumerate(zip(symbol.params, parent_symbol.params)):
+            for i, (child_param, parent_param) in enumerate(zip(method.params, parent_method.params)):
                 if not is_assignable_to(parent_param.type, child_param.type):
                     self._error(
-                        f"Method '{symbol.name}' parameter {i + 1} type '{child_param.type}' is not compatible "
+                        f"Method '{method.name}' parameter {i + 1} type '{child_param.type}' is not compatible "
                         f"with parent parameter type '{parent_param.type}'",
                         func_decl
                     )
 
             # Check return type (covariance: child return type should be assignable to parent return type)
-            if not is_assignable_to(symbol.return_type, parent_symbol.return_type):
+            if not is_assignable_to(method.return_type, parent_method.return_type):
                 self._error(
-                    f"Method '{symbol.name}' return type '{symbol.return_type}' is not compatible "
-                    f"with parent return type '{parent_symbol.return_type}'",
+                    f"Method '{method.name}' return type '{method.return_type}' is not compatible "
+                    f"with parent return type '{parent_method.return_type}'",
                     func_decl
                 )
 
@@ -282,8 +291,12 @@ class SemanticAnalyzer:
             if stmt.else_block is not None:
                 self._analyze_block(stmt.else_block)
 
-    def _analyze_expression(self, expr: _Expression) -> Optional[Type]:
+    def _analyze_expression(self, expr: _Expression, allow_class_type: bool = False) -> Optional[Type]:
+        # allow_class_type is used for static member, because usually it's not a valid type
         expr.type = self._resolve_expression_type(expr)
+        if not allow_class_type and isinstance(expr.type, ClassType):
+            self._error(f"Class types cannot be used as expressions", expr)
+            return None
         return expr.type
 
     def _resolve_expression_type(self, expr: _Expression) -> Optional[Type]:
@@ -324,26 +337,28 @@ class SemanticAnalyzer:
             return symbol.type
         if isinstance(symbol, ParameterSymbol):
             return symbol.type
-        if isinstance(symbol, PropertySymbol):
+        if isinstance(symbol, FieldSymbol):
             return symbol.type
         if isinstance(symbol, FunctionSymbol):
             return symbol.function_type()
         if isinstance(symbol, Class):
-            self._error(f"{expr.name} is a type name, not a value", expr)
-            return None
+            return ClassType(symbol)
         self._error(f"{expr.name} cannot be used as an expression", expr)
         return None
 
     def _resolve_member_expr(self, expr: MemberExpr) -> Optional[Type]:
-        target_type = self._analyze_expression(expr.expr)
+        target_type = self._analyze_expression(expr.target, allow_class_type=True)
         if target_type is None:
             return None
+
+        if isinstance(target_type, ClassType):
+            sys.exit("static member access haha")
 
         if isinstance(target_type, ObjectType):
             member_symbol = target_type.cls.lookup_member(expr.member)
             expr.symbol = member_symbol
             if member_symbol is not None:
-                if isinstance(member_symbol, PropertySymbol):
+                if isinstance(member_symbol, FieldSymbol):
                     return member_symbol.type
                 if isinstance(member_symbol, FunctionSymbol):
                     return member_symbol.function_type()

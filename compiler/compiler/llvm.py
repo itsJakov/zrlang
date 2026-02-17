@@ -2,7 +2,7 @@ import sys
 from typing import Iterable, Optional, NoReturn
 
 from compiler.types import VoidType, BoolType, IntType, ObjectType, FunctionType, Type
-from compiler.symbols import LocalSymbol, ParameterSymbol, PropertySymbol
+from compiler.symbols import LocalSymbol, ParameterSymbol, FieldSymbol, Class
 from lang_ast import (
     ClassDecl, ClassField, FuncDecl, ReturnStmt, _Statement, IntExpr,
     _Expression, BoolExpr, StringExpr, BinaryExpr, BinaryOperation,
@@ -169,11 +169,11 @@ class LLVMIRGenerator:
                     if isinstance(assignee_symbol, LocalSymbol):
                         value_type = self._type_to_ir(stmt.value.type)
                         self._emit(f"\tstore {value_type} {value}, {value_type} %{assignee_symbol.name}")
-                    elif isinstance(assignee_symbol, PropertySymbol):
+                    elif isinstance(assignee_symbol, FieldSymbol):
                         if not isinstance(stmt.assignee, MemberExpr):
-                            fatal_error("PropertySymbol assignee must be a MemberExpr")
+                            fatal_error("FieldSymbol assignee must be a MemberExpr")
 
-                        instance = self._emit_expr(stmt.assignee.expr)
+                        instance = self._emit_expr(stmt.assignee.target)
                         field_name = assignee_symbol.name
 
                         match assignee_symbol.type:
@@ -246,8 +246,8 @@ class LLVMIRGenerator:
                 fatal_error(f"Unknown symbol type: {type(symbol)}")
 
         elif isinstance(expr, MemberExpr):
-            # Assuming PropertySymbol
-            instance = self._emit_expr(expr.expr)
+            # Assuming FieldSymbol
+            instance = self._emit_expr(expr.target)
             field_name = expr.member
             temp = temp_local()
 
@@ -277,7 +277,7 @@ class LLVMIRGenerator:
 
                 fn_temp = temp_local()
 
-                if isinstance(call.callee.expr, SymbolExpr) and isinstance(call.callee.expr.symbol, ParameterSymbol) and call.callee.expr.symbol.name == "super":
+                if isinstance(call.callee.target, SymbolExpr) and isinstance(call.callee.target.symbol, ParameterSymbol) and call.callee.target.symbol.name == "super":
                     # Such an ugly ugly hack to call the superclass method
                     if self._current_class is None:
                         fatal_error("No class or superclass")
@@ -285,8 +285,10 @@ class LLVMIRGenerator:
                     super_class = self._current_class.super or "Object"
                     self._emit(f"\t{fn_temp} = call ptr @zre_method_super(ptr @{super_class}, ptr {self._str_sym(call.callee.member)}) ; {call.callee.member}")
                     args.insert(0, "ptr %self")
+                elif isinstance(call.callee.target, SymbolExpr) and isinstance(call.callee.target.symbol, Class):
+                    pass
                 else:
-                    callee = self._emit_expr(call.callee.expr)
+                    callee = self._emit_expr(call.callee.target)
                     self._emit(f"\t{fn_temp} = call ptr @zre_method_virtual(ptr {callee}, ptr {self._str_sym(call.callee.member)}) ; {call.callee.member}")
                     args.insert(0, f"ptr {callee}")
 

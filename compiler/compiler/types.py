@@ -24,6 +24,12 @@ class IntType(Type):
     def __repr__(self):
         return "Int"
 
+@dataclass
+class ClassType(Type):
+    cls: 'Class'
+
+    def __repr__(self):
+        return f"{self.cls.name}.self"
 
 @dataclass
 class ObjectType(Type):

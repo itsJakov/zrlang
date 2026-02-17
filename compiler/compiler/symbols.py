@@ -17,11 +17,6 @@ class LocalSymbol(Symbol):
 
 
 @dataclass
-class PropertySymbol(Symbol):
-    type: Type
-
-
-@dataclass
 class ParameterSymbol(Symbol):
     type: Type
 
@@ -39,11 +34,21 @@ class FunctionSymbol(Symbol):
             return_type=self.return_type
         )
 
+@dataclass
+class ClassMemberSymbol(Symbol, ABC):
+    is_static: bool
+
+@dataclass
+class FieldSymbol(ClassMemberSymbol):
+    type: Type
+
+@dataclass
+class MethodSymbol(FunctionSymbol, ClassMemberSymbol):
+    pass
+
 
 @dataclass
 class Class(Symbol):
-    ClassMemberSymbol = Union[FunctionSymbol, PropertySymbol]
-
     members: dict[str, ClassMemberSymbol]
     parent: Optional['Class'] = None
 

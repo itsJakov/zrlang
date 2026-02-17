@@ -1,4 +1,4 @@
-from .symbols import Class, FunctionSymbol, ParameterSymbol
+from .symbols import Class, MethodSymbol, ParameterSymbol, FunctionSymbol
 from .types import VoidType, BoolType, IntType, ObjectType
 from .scope import Scope
 
@@ -9,15 +9,17 @@ class StandardTypes:
 
     STRING_CLASS.parent = OBJECT_CLASS
     STRING_CLASS.define(
-        FunctionSymbol(
+        MethodSymbol(
             name="concat",
+            is_static=False,
             params=[ParameterSymbol("other", ObjectType(OBJECT_CLASS))],
-            return_type=ObjectType(STRING_CLASS)
+            return_type=ObjectType(STRING_CLASS),
         )
     )
     OBJECT_CLASS.define(
-        FunctionSymbol(
+        MethodSymbol(
             name="toString",
+            is_static=False,
             params=[],
             return_type=ObjectType(STRING_CLASS)
         )
@@ -27,18 +29,21 @@ class StandardTypes:
         name="Array",
         parent=OBJECT_CLASS,
         symbols=[
-            FunctionSymbol(
+            MethodSymbol(
                 name="append",
+                is_static=False,
                 params=[ParameterSymbol("object", ObjectType(OBJECT_CLASS))],
                 return_type=VoidType()
             ),
-            FunctionSymbol(
+            MethodSymbol(
                 name="get",
+                is_static=False,
                 params=[ParameterSymbol("index", IntType())],
                 return_type=ObjectType(OBJECT_CLASS)
             ),
-            FunctionSymbol(
+            MethodSymbol(
                 name="getIsEmpty",
+                is_static=False,
                 params=[],
                 return_type=BoolType()
             ),
@@ -49,13 +54,15 @@ class StandardTypes:
         name="File",
         parent=OBJECT_CLASS,
         symbols=[
-            FunctionSymbol(
+            MethodSymbol(
                 name="initWithPath",
+                is_static=False,
                 params=[ParameterSymbol(name="path", type=ObjectType(STRING_CLASS))],
                 return_type=VoidType()
             ),
-            FunctionSymbol(
+            MethodSymbol(
                 name="append",
+                is_static=False,
                 params=[ParameterSymbol(name="content", type=ObjectType(STRING_CLASS))],
                 return_type=VoidType()
             ),

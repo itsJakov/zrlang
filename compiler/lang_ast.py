@@ -40,7 +40,7 @@ class SymbolExpr(_SymbolRefExpr):
 
 @dataclass
 class MemberExpr(_SymbolRefExpr):
-    expr: _Expression
+    target: _Expression
     member: str
 
 @dataclass
