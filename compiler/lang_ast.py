@@ -144,6 +144,7 @@ class ClassDecl(_TopLevelDecl):
 # Method / Function
 class FuncDecorator(Enum):
     OVERRIDE = "override"
+    STATIC = "static"
 
 @dataclass
 class FuncParam(_Ast):

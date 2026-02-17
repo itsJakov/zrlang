@@ -157,7 +157,7 @@ class SemanticAnalyzer:
             elif isinstance(member, FuncDecl):
                 method_symbol = MethodSymbol(
                     name=member.name,
-                    is_static=False,
+                    is_static=FuncDecorator.STATIC in member.decorators,
                     params=[],
                     return_type=VoidType()
                 )
@@ -221,6 +221,13 @@ class SemanticAnalyzer:
             if not is_override:
                 self._error(
                     f"Method '{func_decl.name}' overrides parent method but missing 'override'",
+                    func_decl
+                )
+
+            # Error 3: Method overrides a static method
+            if parent_method.is_static:
+                self._error(
+                    f"Method '{func_decl.name}' cannot override static method in parent class",
                     func_decl
                 )
 
