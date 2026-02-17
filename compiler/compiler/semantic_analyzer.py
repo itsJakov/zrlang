@@ -352,15 +352,32 @@ class SemanticAnalyzer:
             return None
 
         if isinstance(target_type, ClassType):
-            sys.exit("static member access haha")
+            member_symbol = target_type.cls.lookup_member(expr.member)
+            expr.symbol = member_symbol
+            if member_symbol is not None:
+                if not member_symbol.is_static:
+                    self._error(f"Cannot access non-static member '{expr.member}' on class '{target_type.cls.name}'", expr)
+                    return None
+
+                if isinstance(member_symbol, FieldSymbol):
+                    return member_symbol.type
+                if isinstance(member_symbol, MethodSymbol):
+                    return member_symbol.function_type()
+
+            self._error(f"Undefined static member {expr.member} on class {target_type.cls.name}", expr)
+            return None
 
         if isinstance(target_type, ObjectType):
             member_symbol = target_type.cls.lookup_member(expr.member)
             expr.symbol = member_symbol
             if member_symbol is not None:
+                if member_symbol.is_static:
+                    self._error(f"Cannot access static member '{expr.member}' on instance of '{target_type.cls.name}'", expr)
+                    return None
+
                 if isinstance(member_symbol, FieldSymbol):
                     return member_symbol.type
-                if isinstance(member_symbol, FunctionSymbol):
+                if isinstance(member_symbol, MethodSymbol):
                     return member_symbol.function_type()
 
             if target_type.cls == StandardTypes.OBJECT_CLASS:
