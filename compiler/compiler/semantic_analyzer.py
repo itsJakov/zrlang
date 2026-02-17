@@ -193,7 +193,7 @@ class SemanticAnalyzer:
         self_type = ObjectType(cls_decl.cls)
         for member in cls_decl.members:
             if isinstance(member, FuncDecl):
-                self._analyze_function_body(member, self_type=self_type)
+                self._analyze_function_body(member, self_type=None if member.sym.is_static else self_type)
 
     def _check_method_overrides(self, cls_decl: ClassDecl):
         cls = cls_decl.cls
