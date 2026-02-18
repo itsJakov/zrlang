@@ -293,7 +293,7 @@ class SemanticAnalyzer:
             if assignee_type is None or value_type is None:
                 return
 
-            if isinstance(stmt.assignee, SymbolExpr) and stmt.assignee.name == "self":
+            if isinstance(stmt.assignee, SymbolExpr) and (stmt.assignee.name == "self" or stmt.assignee.name == "super"):
                 self._error("Cannot assign to 'self'", stmt)
                 return
 
