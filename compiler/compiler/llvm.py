@@ -228,7 +228,7 @@ class LLVMIRGenerator:
         def temp_local() -> str:
             if local is not None:
                 return f"%{local}"
-            sym = f"%.tmp.{self._temp_idx}"
+            sym = f"%{self._temp_idx}"
             self._temp_idx += 1
             return sym
 
