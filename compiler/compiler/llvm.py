@@ -128,7 +128,10 @@ class LLVMIRGenerator:
                 self._emit_method(cls, method)
 
     def _emit_method(self, cls: ClassDecl, method: FuncDecl):
-        self._emit_function_impl(method, f"{cls.name}.{method.name}", linkage="internal", add_self=not method.sym.is_static)
+        self._emit_function_impl(method,
+                                 f"{cls.name}.{method.name}",
+                                 linkage="" if method.sym.is_static else "internal",
+                                 add_self=not method.sym.is_static)
 
     def _emit_function_impl(self, func_decl: FuncDecl, name: str, linkage: str = "", add_self: bool = False):
         params = [f"{self._type_to_ir(param.type)} %{param.name}" for param in func_decl.params]

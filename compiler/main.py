@@ -6,16 +6,15 @@ from compiler import SemanticAnalyzer, LLVMIRGenerator
 
 INPUT = """
 func main() -> Int {
-    var logger = new Logger
-    logger.init()
-    logger.threshold = 2
-    print(logger)
+    var logger = Logger.new()
     
-    logger.addService(new ConsoleLoggerService)
-    logger.addService(new FileLoggerService)
-    
+    print("=== Logging with message level over threshold ===")
     logger.log(5, "This is a log message :)")
+    
+    print("=== Logging with message level under threshold ===")
     logger.log(logger.threshold - 1, "You will never see this log message :(")
+    
+    print("=== Testing all services ===")
     logger.testAllServices()
     
     return 0
@@ -49,6 +48,17 @@ class Logger {
     var services: Array
     var threshold: Int
     
+    static func new() -> Logger {
+        var logger = new Logger
+        logger.init()
+        logger.threshold = 2
+        
+        logger.addService(new ConsoleLoggerService)
+        logger.addService(new FileLoggerService)
+        
+        return logger
+    }
+    
     func init() {
         self.services = new Array
     }
@@ -67,6 +77,7 @@ class Logger {
     }
     
     func testAllServices() {
+        print("Testing all services in ".concat(self.toString()))
         self.services.get(0).test()
         self.services.get(1).test()
     }
