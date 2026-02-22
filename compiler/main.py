@@ -1,6 +1,7 @@
 import subprocess
 import sys
 
+from compiler.IRLowerer import IRLowerer
 from lang_ast import parse
 from compiler import SemanticAnalyzer, LLVMIRGenerator
 
@@ -96,6 +97,10 @@ if __name__ == "__main__":
         sys.exit("Compilation failed due to semantic errors!")
 
     func_symbols, class_symbols = symbols
+
+    irfunc = IRLowerer()._lower_function(func_symbols[0])
+    print(irfunc.body)
+
     with open("ir.ll", "w") as f:
         f.write(LLVMIRGenerator(func_symbols, class_symbols).generate())
 
