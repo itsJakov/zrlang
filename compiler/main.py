@@ -91,11 +91,13 @@ class Logger {
 if __name__ == "__main__":
     result = parse(INPUT)
 
-    if not SemanticAnalyzer().analyze(result):
+    symbols = SemanticAnalyzer().analyze(result)
+    if symbols is None:
         sys.exit("Compilation failed due to semantic errors!")
 
+    func_symbols, class_symbols = symbols
     with open("ir.ll", "w") as f:
-        f.write(LLVMIRGenerator(result).generate())
+        f.write(LLVMIRGenerator(func_symbols, class_symbols).generate())
 
     res = subprocess.run(["clang", "-Wno-override-module", "-S", "ir.ll", "-o", "out.s"])
     #res = subprocess.run(["clang", "-Wno-override-module", "ir.ll", "../cmake-build-debug/libzrlang.a", "-o", "prog"])
