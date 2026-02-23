@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Union, Optional
 
-from compiler.symbols import FunctionSymbol, ParameterSymbol, FieldSymbol, LocalSymbol, MethodSymbol
+from compiler.symbols import FunctionSymbol, ParameterSymbol, FieldSymbol, LocalSymbol, MethodSymbol, Class
 
 
 @dataclass
@@ -60,10 +60,18 @@ class IRVirtualCall:
     destination: Optional[IRReg]
 
     def __repr__(self):
-        return f"virtual_call on {self.target} {self.method.name} ({', '.join(str(a) for a in self.args)}) -> {self.destination}"
+        return f"virtual_call {self.target} {self.method.name} ({', '.join(str(a) for a in self.args)}) -> {self.destination}"
 
 
-IRInstruction = Union[IRReturn, IRLoad, IRStore, IRFuncCall, IRVirtualCall]
+@dataclass
+class IRAlloc:
+    cls: Class
+    destination: IRReg
+
+    def __repr__(self):
+        return f"alloc {self.cls.name} -> {self.destination}"
+
+IRInstruction = Union[IRReturn, IRLoad, IRStore, IRFuncCall, IRVirtualCall, IRAlloc]
 
 
 @dataclass

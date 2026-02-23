@@ -481,11 +481,12 @@ class SemanticAnalyzer:
                 return None
 
     def _resolve_alloc_expr(self, expr: AllocExpr) -> Optional[Type]:
-        class_symbol = self.scope.lookup(expr.cls_name)
-        if class_symbol is None:
+        cls = self.scope.lookup(expr.cls_name)
+        expr.cls = cls
+        if cls is None:
             self._error(f"Undefined class {expr.cls_name}", expr)
             return None
-        if not isinstance(class_symbol, Class):
+        if not isinstance(cls, Class):
             self._error(f"{expr.cls_name} is not a class", expr)
             return None
-        return ObjectType(cls=class_symbol)
+        return ObjectType(cls=cls)

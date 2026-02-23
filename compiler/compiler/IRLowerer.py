@@ -2,11 +2,11 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
-    IRLoad
+    IRLoad, IRAlloc
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol
 from compiler.types import VoidType
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
-    MemberExpr, VarStmt
+    MemberExpr, VarStmt, AllocExpr
 
 
 def fatal_error(msg: str) -> NoReturn:
@@ -81,6 +81,14 @@ class IRLowerer:
 
         if isinstance(expr, CallExpr):
             return self._lower_call_expr(expr)
+
+        if isinstance(expr, AllocExpr):
+            temp = self._function_ctx.temp_teg()
+            self._emit(IRAlloc(
+                cls=expr.cls,
+                destination=temp
+            ))
+            return temp
 
         print(f"Expression '{expr}' is unknown")
         return "ERROR"

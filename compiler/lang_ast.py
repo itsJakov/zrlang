@@ -50,6 +50,8 @@ class CallExpr(_Expression):
 class AllocExpr(_Expression):
     cls_name: str
 
+    cls: 'Class' = field(init=False, default=None) # Resolved class symbol
+
 class BinaryOperation(Enum):
     # Comparison
     EQ = "=="
