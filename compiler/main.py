@@ -99,7 +99,8 @@ if __name__ == "__main__":
     func_symbols, class_symbols = symbols
 
     irfunc = IRLowerer()._lower_function(func_symbols[0])
-    print(irfunc.body)
+    for i in irfunc.body:
+        print(i)
 
     with open("ir.ll", "w") as f:
         f.write(LLVMIRGenerator(func_symbols, class_symbols).generate())
