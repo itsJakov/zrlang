@@ -13,7 +13,7 @@ class IRReg:
 
 
 IROperand = Union[IRReg, bool, int, str]
-IRStorage = Union[LocalSymbol, ParameterSymbol, FieldSymbol]
+IRStorage = Union[LocalSymbol, ParameterSymbol]
 
 
 @dataclass
@@ -41,6 +41,25 @@ class IRStore:
     def __repr__(self):
         return f"store {self.value} -> {self.destination}"
 
+
+@dataclass
+class IRLoadField:
+    target: IROperand
+    field: FieldSymbol
+    destination: Optional[IRReg]
+
+    def __repr__(self):
+        return f"load_field {self.target} {self.field.name} -> {self.destination}"
+
+
+@dataclass
+class IRStoreField:
+    value: IROperand
+    target: IROperand
+    field: FieldSymbol
+
+    def __repr__(self):
+        return f"store_field {self.value} -> {self.target} {self.field.name}"
 
 @dataclass
 class IRFuncCall:
@@ -71,7 +90,14 @@ class IRAlloc:
     def __repr__(self):
         return f"alloc {self.cls.name} -> {self.destination}"
 
-IRInstruction = Union[IRReturn, IRLoad, IRStore, IRFuncCall, IRVirtualCall, IRAlloc]
+
+IRInstruction = Union[
+    IRReturn,
+    IRLoad, IRStore,
+    IRLoadField, IRStoreField,
+    IRFuncCall, IRVirtualCall,
+    IRAlloc
+]
 
 
 @dataclass

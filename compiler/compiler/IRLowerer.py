@@ -2,11 +2,11 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
-    IRLoad, IRAlloc
-from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol
+    IRLoad, IRAlloc, IRStorage, IRStoreField
+from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
-    MemberExpr, VarStmt, AllocExpr
+    MemberExpr, VarStmt, AllocExpr, AssignStmt
 
 
 def fatal_error(msg: str) -> NoReturn:
@@ -52,6 +52,29 @@ class IRLowerer:
                     destination=stmt.local,
                     value=self._lower_expr(stmt.expr)
                 ))
+
+            elif isinstance(stmt, AssignStmt):
+                value = self._lower_expr(stmt.value)
+
+                if isinstance(stmt.assignee, (SymbolExpr, MemberExpr)):
+                    assignee_symbol = stmt.assignee.symbol
+                    if isinstance(assignee_symbol, (LocalSymbol, ParameterSymbol)):
+                        self._emit(IRStore(
+                            destination=assignee_symbol,
+                            value=value
+                        ))
+                    elif isinstance(assignee_symbol, FieldSymbol):
+                        if not isinstance(stmt.assignee, MemberExpr):
+                            fatal_error("FieldSymbol assignee must be a MemberExpr")
+
+                        instance = self._lower_expr(stmt.assignee.target)
+                        self._emit(IRStoreField(
+                            value=value,
+                            target=instance,
+                            field=assignee_symbol
+                        ))
+                else:
+                    fatal_error(f"Not an assignable expr {type(stmt.assignee)}")
 
             elif isinstance(stmt, ExprStmt):
                 self._lower_expr(stmt.expr)
