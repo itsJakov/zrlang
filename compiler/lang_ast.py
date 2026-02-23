@@ -100,8 +100,10 @@ class ReturnStmt(_Statement):
 
 @dataclass
 class VarStmt(_Statement):
-    local: str
+    name: str
     expr: Optional[_Expression]
+
+    local: Optional['LocalSymbol'] = field(init=False, default=None) # Resolved local variable symbol
 
 @dataclass
 class ExprStmt(_Statement):

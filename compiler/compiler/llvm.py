@@ -165,8 +165,8 @@ class LLVMIRGenerator:
                 else:
                     value = self._emit_expr(stmt.expr)
                     value_type = self._type_to_ir(stmt.expr.type)
-                    self._emit(f"\t%{stmt.local} = alloca {value_type} ; bad!")
-                    self._emit(f"\tstore {value_type} {value}, {value_type} %{stmt.local}")
+                    self._emit(f"\t%{stmt.name} = alloca {value_type} ; bad!")
+                    self._emit(f"\tstore {value_type} {value}, {value_type} %{stmt.name}")
 
             elif isinstance(stmt, ExprStmt):
                 self._emit_expr(stmt.expr)

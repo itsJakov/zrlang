@@ -8,9 +8,12 @@ from compiler.symbols import FunctionSymbol, ParameterSymbol, FieldSymbol, Local
 class IRReg:
     idx: int
 
+    def __repr__(self):
+        return f"%{self.idx}"
 
-IROperand = Union[IRReg, LocalSymbol, ParameterSymbol, FieldSymbol, bool, int, str]
-IRDestination = Union[IRReg, LocalSymbol, ParameterSymbol, FieldSymbol]
+
+IROperand = Union[IRReg, bool, int, str]
+IRStorage = Union[LocalSymbol, ParameterSymbol, FieldSymbol]
 
 
 @dataclass
@@ -20,11 +23,30 @@ class IRReturn:
     def __repr__(self):
         return f"return {self.value}"
 
+
+@dataclass
+class IRLoad:
+    source: IRStorage
+    destination: IRReg
+
+    def __repr__(self):
+        return f"load {self.source.name} -> {self.destination}"
+
+
+@dataclass
+class IRStore:
+    value: IROperand
+    destination: IRStorage
+
+    def __repr__(self):
+        return f"store {self.value} -> {self.destination}"
+
+
 @dataclass
 class IRFuncCall:
     func: FunctionSymbol
     args: list[IROperand]
-    destination: Optional[IRDestination]
+    destination: Optional[IRReg]
 
     def __repr__(self):
         return f"func_call {self.func.name} ({', '.join(str(a) for a in self.args)}) -> {self.destination}"
@@ -35,12 +57,13 @@ class IRVirtualCall:
     method: MethodSymbol
     target: IROperand
     args: list[IROperand]
-    destination: Optional[IRDestination]
+    destination: Optional[IRReg]
 
     def __repr__(self):
         return f"virtual_call on {self.target} {self.method.name} ({', '.join(str(a) for a in self.args)}) -> {self.destination}"
 
-IRInstruction = Union[IRReturn, IRFuncCall, IRVirtualCall]
+
+IRInstruction = Union[IRReturn, IRLoad, IRStore, IRFuncCall, IRVirtualCall]
 
 
 @dataclass

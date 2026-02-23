@@ -278,8 +278,9 @@ class SemanticAnalyzer:
     def _analyze_statement(self, stmt: _Statement):
         if isinstance(stmt, VarStmt):
             value_type = self._analyze_expression(stmt.expr)
-            if not self.scope.define(LocalSymbol(name=stmt.local, type=value_type)):
-                self._error(f"Variable '{stmt.local}' is already defined in this scope", stmt)
+            stmt.local = LocalSymbol(name=stmt.name, type=value_type)
+            if not self.scope.define(stmt.local):
+                self._error(f"Variable '{stmt.name}' is already defined in this scope", stmt)
 
         elif isinstance(stmt, ExprStmt):
             expr_type = self._analyze_expression(stmt.expr)

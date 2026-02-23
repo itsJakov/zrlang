@@ -1,11 +1,12 @@
 import sys
 from typing import Optional, NoReturn
 
-from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall
-from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol
+from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
+    IRLoad
+from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol
 from compiler.types import VoidType
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
-    MemberExpr
+    MemberExpr, VarStmt
 
 
 def fatal_error(msg: str) -> NoReturn:
@@ -32,8 +33,10 @@ class IRLowerer:
 
     def _lower_function(self, func: FunctionSymbol) -> IRFunction:
         ir_func = IRFunction(func)
+        self._function_ctx = _FunctionCtx()
         self._current_block = ir_func.body
         self._lower_block(func.node.block)
+        self._function_ctx = None
         self._current_block = None
         return ir_func
 
@@ -43,6 +46,12 @@ class IRLowerer:
             if isinstance(stmt, ReturnStmt):
                 self._emit(IRReturn(self._lower_expr(stmt.expr) if stmt.expr is not None else None))
                 return True
+
+            elif isinstance(stmt, VarStmt):
+                self._emit(IRStore(
+                    destination=stmt.local,
+                    value=self._lower_expr(stmt.expr)
+                ))
 
             elif isinstance(stmt, ExprStmt):
                 self._lower_expr(stmt.expr)
@@ -61,6 +70,14 @@ class IRLowerer:
 
         if isinstance(expr, StringExpr):
             return expr.value
+
+        if isinstance(expr, SymbolExpr):
+            symbol = expr.symbol
+            if not isinstance(symbol, (ParameterSymbol, LocalSymbol)):
+                fatal_error("Symbol expressions have to resolve to parameter or local symbols")
+            temp = self._function_ctx.temp_teg()
+            self._emit(IRLoad(source=symbol, destination=temp))
+            return temp
 
         if isinstance(expr, CallExpr):
             return self._lower_call_expr(expr)
