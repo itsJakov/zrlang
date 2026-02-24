@@ -25,7 +25,9 @@ class _FunctionCtx:
 
 class IRLowerer:
     def __init__(self):
+        # TODO: ugly
         self._function_ctx: Optional[_FunctionCtx] = None
+        self._current_func: Optional[IRFunction] = None
         self._current_block: Optional[list[IRInstruction]] = []
 
     def _emit(self, i: IRInstruction):
@@ -33,9 +35,11 @@ class IRLowerer:
 
     def _lower_function(self, func: FunctionSymbol) -> IRFunction:
         ir_func = IRFunction(func)
+        self._current_func = ir_func
         self._function_ctx = _FunctionCtx()
         self._current_block = ir_func.body
         self._lower_block(func.node.block)
+        self._function_ctx = None
         self._function_ctx = None
         self._current_block = None
         return ir_func
@@ -48,6 +52,7 @@ class IRLowerer:
                 return True
 
             elif isinstance(stmt, VarStmt):
+                self._current_func.locals.append(stmt.local)
                 self._emit(IRStore(
                     destination=stmt.local,
                     value=self._lower_expr(stmt.expr)

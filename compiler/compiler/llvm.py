@@ -2,8 +2,8 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
-    IRFuncCall
-from compiler.symbols import FieldSymbol, Class, MethodSymbol
+    IRFuncCall, IRStore, IRStorage, IRLoad
+from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 
 
@@ -136,6 +136,15 @@ class LLVMIRGenerator:
             params.insert(0, "ptr %self")
 
         self._emit(f"define {linkage} {self._type_to_ir(ir_func.sym.return_type)} @{name}({', '.join(params)}) {{")
+
+        for local in ir_func.locals:
+            self._emit(f"\t%l.{local.name} = alloca {self._type_to_ir(local.type)}")
+
+        for param in ir_func.sym.params:
+            self._emit(f"\t%p.{param.name} = alloca {self._type_to_ir(param.type)}")
+            self._emit(f"\tstore {self._type_to_ir(param.type)} %{param}")
+
+        self._emit(";")
         self._temp_idx = 0
         self._emit_block(ir_func.body)
         self._emit("}")
@@ -147,6 +156,15 @@ class LLVMIRGenerator:
                     self._emit("\tret void")
                 else:
                     self._emit(f"\tret {self._operand(instr.value)}")
+
+            elif isinstance(instr, IRStore):
+                self._emit(f"\tstore {self._operand(instr.value)}, ptr {self._storage_reg(instr.destination)}")
+
+            elif isinstance(instr, IRLoad):
+                self._emit(
+                    f"\t{self._reg(instr.destination)} = "
+                    f"load {self._type_to_ir(instr.destination.type)}, ptr {self._storage_reg(instr.source)}"
+                )
 
             elif isinstance(instr, _IRCall):
                 self._emit_call(instr)
@@ -161,12 +179,12 @@ class LLVMIRGenerator:
         if isinstance(call, IRFuncCall):
             ir = f"{self._type_to_ir(call.func.return_type)} @_zr_{call.func.name}"
         elif isinstance(call, IRVirtualCall):
-            self._temp_idx += 1
+            fn_ptr = self._temp_reg()
             self._emit(
-                f"\t%fn.{self._temp_idx} = call ptr @zre_method_virtual"
+                f"\t{fn_ptr} = call ptr @zre_method_virtual"
                 f"(ptr {self._operand_value(call.target)}, ptr {self._str_sym(call.method.name)})"
             )
-            ir = f"{self._type_to_ir(call.method.return_type)} %fn.{self._temp_idx}"
+            ir = f"{self._type_to_ir(call.method.return_type)} {fn_ptr}"
         else:
             fatal_error(f"Unsupported IR call type: {type(call)}")
 
@@ -174,6 +192,19 @@ class LLVMIRGenerator:
             self._emit(f"\t{self._reg(call.destination)} = call {call}({args})")
         else:
             self._emit(f"\tcall {ir}({args})")
+
+    def _temp_reg(self) -> str:
+        self._temp_idx += 1
+        return f"%tmp.{self._temp_idx}"
+
+    def _storage_reg(self, storage: IRStorage) -> str:
+        match storage:
+            case LocalSymbol(name):
+                return f"%l.{name}"
+            case ParameterSymbol(name):
+                return f"%p.{name}"
+            case _:
+                fatal_error(f"Unsupported storage type: {type(storage)}")
 
     def _type_to_ir(self, t: Type) -> str:
         if isinstance(t, VoidType):

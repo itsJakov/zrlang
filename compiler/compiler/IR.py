@@ -110,3 +110,4 @@ IRInstruction = Union[
 class IRFunction:
     sym: FunctionSymbol
     body: list[IRInstruction] = field(default_factory=list)
+    locals: list[LocalSymbol] = field(default_factory=list)
