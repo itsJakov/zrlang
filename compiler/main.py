@@ -103,7 +103,7 @@ if __name__ == "__main__":
         print(i)
 
     with open("ir.ll", "w") as f:
-        f.write(LLVMIRGenerator(func_symbols, class_symbols).generate())
+        f.write(LLVMIRGenerator([irfunc], []).generate())
 
     res = subprocess.run(["clang", "-Wno-override-module", "-S", "ir.ll", "-o", "out.s"])
     #res = subprocess.run(["clang", "-Wno-override-module", "ir.ll", "../cmake-build-debug/libzrlang.a", "-o", "prog"])

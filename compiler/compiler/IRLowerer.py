@@ -4,7 +4,7 @@ from typing import Optional, NoReturn
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
     IRLoad, IRAlloc, IRStorage, IRStoreField
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
-from compiler.types import VoidType
+from compiler.types import VoidType, Type
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
     MemberExpr, VarStmt, AllocExpr, AssignStmt
 
@@ -18,9 +18,9 @@ class _FunctionCtx:
         # self._live_locals: set[LocalSymbol] = set()
         self._temp_idx: int = -1
 
-    def temp_teg(self) -> IRReg:
+    def temp_teg(self, t: Type) -> IRReg:
         self._temp_idx += 1
-        return IRReg(idx=self._temp_idx)
+        return IRReg(idx=self._temp_idx, type=t)
 
 
 class IRLowerer:
@@ -98,7 +98,7 @@ class IRLowerer:
             symbol = expr.symbol
             if not isinstance(symbol, (ParameterSymbol, LocalSymbol)):
                 fatal_error("Symbol expressions have to resolve to parameter or local symbols")
-            temp = self._function_ctx.temp_teg()
+            temp = self._function_ctx.temp_teg(expr.type)
             self._emit(IRLoad(source=symbol, destination=temp))
             return temp
 
@@ -106,7 +106,7 @@ class IRLowerer:
             return self._lower_call_expr(expr)
 
         if isinstance(expr, AllocExpr):
-            temp = self._function_ctx.temp_teg()
+            temp = self._function_ctx.temp_teg(expr.type)
             self._emit(IRAlloc(
                 cls=expr.cls,
                 destination=temp
@@ -125,7 +125,7 @@ class IRLowerer:
             if not isinstance(callee.symbol, FunctionSymbol):
                 fatal_error(f"Expected a function symbol for call expression")
 
-            destination = self._function_ctx.temp_teg() if callee.symbol.return_type != VoidType() else None
+            destination = self._function_ctx.temp_teg(call.type) if callee.symbol.return_type != VoidType() else None
             self._emit(IRFuncCall(
                 func=callee.symbol,
                 args=args,
@@ -146,7 +146,7 @@ class IRLowerer:
                 pass
             else:
                 # Instance method call
-                destination = self._function_ctx.temp_teg() if callee.symbol.return_type != VoidType() else None
+                destination = self._function_ctx.temp_teg(call.type) if callee.symbol.return_type != VoidType() else None
                 self._emit(IRVirtualCall(
                     method=method,
                     target=self._lower_expr(callee.target),

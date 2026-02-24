@@ -2,11 +2,13 @@ from dataclasses import dataclass, field
 from typing import Union, Optional
 
 from compiler.symbols import FunctionSymbol, ParameterSymbol, FieldSymbol, LocalSymbol, MethodSymbol, Class
+from compiler.types import Type
 
 
 @dataclass
 class IRReg:
     idx: int
+    type: Type
 
     def __repr__(self):
         return f"%{self.idx}"
