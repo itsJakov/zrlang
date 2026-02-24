@@ -1,19 +1,15 @@
 import sys
 from typing import Optional, NoReturn
 
-from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall
-from compiler.types import VoidType, BoolType, IntType, ObjectType, FunctionType, Type
-from compiler.symbols import LocalSymbol, ParameterSymbol, FieldSymbol, Class, FunctionSymbol, MethodSymbol
-from lang_ast import (
-    ClassDecl, FuncDecl, ReturnStmt, _Statement, IntExpr,
-    _Expression, BoolExpr, StringExpr, BinaryExpr, BinaryOperation,
-    SymbolExpr, CallExpr, MemberExpr, ExprStmt, IfStmt, VarStmt,
-    AllocExpr, AssignStmt
-)
+from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
+    IRFuncCall
+from compiler.symbols import FieldSymbol, Class, MethodSymbol
+from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 
 
 def fatal_error(msg: str) -> NoReturn:
     sys.exit(f"internal error: {msg}\nThis is a bug in the compiler, semantic analysis should've caught this!")
+
 
 class LLVMIRGenerator:
     def __init__(self, funcs: list[IRFunction], class_symbols: list[Class]):
@@ -152,12 +148,32 @@ class LLVMIRGenerator:
                 else:
                     self._emit(f"\tret {self._operand(instr.value)}")
 
-            elif isinstance(instr, IRVirtualCall):
-                self._temp_idx += 1
-                self._emit(f"\t%fn.{self._temp_idx} = call ptr @zre_method_virtual(ptr {self._operand_value(instr.target)}, ptr {self._str_sym(instr.method.name)})")
+            elif isinstance(instr, _IRCall):
+                self._emit_call(instr)
 
             elif isinstance(instr, IRAlloc):
-                self._emit(f"\t%.{instr.destination.idx} = call ptr @zre_alloc(ptr @{instr.cls.name})")
+                self._emit(f"\t{self._reg(instr.destination)} = call ptr @zre_alloc(ptr @{instr.cls.name})")
+
+    def _emit_call(self, call: _IRCall):
+        args = ", ".join(self._operand(arg) for arg in call.args)
+
+        ir: str
+        if isinstance(call, IRFuncCall):
+            ir = f"{self._type_to_ir(call.func.return_type)} @_zr_{call.func.name}"
+        elif isinstance(call, IRVirtualCall):
+            self._temp_idx += 1
+            self._emit(
+                f"\t%fn.{self._temp_idx} = call ptr @zre_method_virtual"
+                f"(ptr {self._operand_value(call.target)}, ptr {self._str_sym(call.method.name)})"
+            )
+            ir = f"{self._type_to_ir(call.method.return_type)} %fn.{self._temp_idx}"
+        else:
+            fatal_error(f"Unsupported IR call type: {type(call)}")
+
+        if call.destination is not None:
+            self._emit(f"\t{self._reg(call.destination)} = call {call}({args})")
+        else:
+            self._emit(f"\tcall {ir}({args})")
 
     def _type_to_ir(self, t: Type) -> str:
         if isinstance(t, VoidType):
@@ -170,6 +186,9 @@ class LLVMIRGenerator:
             return "ptr"
 
         fatal_error(f"Unsupported type for LLVM codegen: {t}")
+
+    def _reg(self, reg: IRReg) -> str:
+        return f"%.{reg.idx}"
 
     def _operand(self, operand: IROperand) -> str:
         return f"{self._operand_type(operand)} {self._operand_value(operand)}"

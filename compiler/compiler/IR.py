@@ -1,3 +1,4 @@
+from abc import ABC
 from dataclasses import dataclass, field
 from typing import Union, Optional
 
@@ -63,22 +64,25 @@ class IRStoreField:
     def __repr__(self):
         return f"store_field {self.value} -> {self.target} {self.field.name}"
 
+
 @dataclass
-class IRFuncCall:
-    func: FunctionSymbol
+class _IRCall(ABC):
     args: list[IROperand]
     destination: Optional[IRReg]
+
+
+@dataclass
+class IRFuncCall(_IRCall):
+    func: FunctionSymbol
 
     def __repr__(self):
         return f"func_call {self.func.name} ({', '.join(str(a) for a in self.args)}) -> {self.destination}"
 
 
 @dataclass
-class IRVirtualCall:
+class IRVirtualCall(_IRCall):
     method: MethodSymbol
     target: IROperand
-    args: list[IROperand]
-    destination: Optional[IRReg]
 
     def __repr__(self):
         return f"virtual_call {self.target} {self.method.name} ({', '.join(str(a) for a in self.args)}) -> {self.destination}"
