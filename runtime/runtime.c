@@ -164,7 +164,9 @@ ZREString zre_string(char* s) {
 }
 
 void zre_print(Instance* obj) {
-    if (obj->cls == &String) {
+    if (obj == NULL) {
+        puts("null");
+    } else if (obj->cls == &String) {
         puts(zstr_get(obj));
     } else {
         ZREString str = zre_call(obj, "toString");
