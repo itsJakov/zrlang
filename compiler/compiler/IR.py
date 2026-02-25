@@ -111,3 +111,14 @@ class IRFunction:
     sym: FunctionSymbol
     body: list[IRInstruction] = field(default_factory=list)
     locals: list[LocalSymbol] = field(default_factory=list)
+
+
+@dataclass
+class IRMethod(IRFunction):
+    sym: MethodSymbol
+
+
+@dataclass
+class IRClass:
+    sym: Class
+    methods: list[IRMethod] = field(default_factory=list)

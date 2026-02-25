@@ -2,7 +2,7 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
-    IRLoad, IRAlloc, IRStoreField
+    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
@@ -30,10 +30,21 @@ class IRLowerer:
         self._current_func: Optional[IRFunction] = None
         self._current_block: Optional[list[IRInstruction]] = []
 
+    def lower(self, funcs: list[FunctionSymbol], classes: list[Class]) -> tuple[list[IRFunction], list[IRClass]]:
+        ir_funcs = [self._lower_function(func) for func in funcs]
+        ir_classes = [self._lower_class(cls) for cls in classes]
+        return ir_funcs, ir_classes
+
     def _emit(self, i: IRInstruction):
         self._current_block.append(i)
 
-    def _lower_function(self, func: FunctionSymbol) -> IRFunction:
+    def _lower_class(self, cls: Class) -> IRClass:
+        return IRClass(
+            sym=cls,
+            methods=[self._lower_function(method) for method in cls.members if isinstance(method, MethodSymbol)]
+        )
+
+    def _lower_function(self, func: FunctionSymbol) -> IRFunction | IRMethod:
         ir_func = IRFunction(func)
         self._current_func = ir_func
         self._function_ctx = _FunctionCtx()

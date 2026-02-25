@@ -2,7 +2,7 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
-    IRFuncCall, IRStore, IRStorage, IRLoad
+    IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 
@@ -12,14 +12,13 @@ def fatal_error(msg: str) -> NoReturn:
 
 
 class LLVMIRGenerator:
-    def __init__(self, funcs: list[IRFunction], class_symbols: list[Class]):
+    def __init__(self, funcs: list[IRFunction], classes: list[IRClass]):
         self.funcs = funcs
-        self.class_symbols = class_symbols
+        self.classes = classes
         self._lines: list[str] = []
         self._strings: list[str] = []
         self._temp_idx: int = 0
         self._if_idx: int = 0
-        self._current_class: Optional[Class] = None
 
         self._declarations = [
             "declare ptr @zre_alloc(ptr)",
@@ -47,8 +46,8 @@ class LLVMIRGenerator:
         for ir_func in self.funcs:
             self._emit_function(ir_func)
 
-        for cls_sym in self.class_symbols:
-            self._emit_class(cls_sym)
+        for ir_cls in self.classes:
+            self._emit_class(ir_cls)
 
         self._emit("\n; String data")
         for idx, string in enumerate(self._strings):
@@ -74,8 +73,8 @@ class LLVMIRGenerator:
         self._emit_function_impl(ir, name, linkage="")
         self._emit("")
 
-    def _emit_class(self, cls: Class):
-        self._current_class = cls
+    def _emit_class(self, ir: IRClass):
+        cls = ir.sym
         self._emit(f"; ==== \"{cls.name}\" Class Definition ====")
 
         field_symbols = [m for m in cls.members.values() if isinstance(m, FieldSymbol)]
@@ -85,12 +84,12 @@ class LLVMIRGenerator:
                                   for field in field_symbols))
             self._emit("]")
 
-        instance_methods = [m for m in cls.members.values() if isinstance(m, MethodSymbol) and not m.is_static]
-        static_methods = [m for m in cls.members.values() if isinstance(m, MethodSymbol) and m.is_static]
+        instance_methods: list[IRMethod] = [m for m in ir.methods if not m.sym.is_static]
+        static_methods: list[IRMethod] = [m for m in ir.methods if m.sym.is_static]
 
         if instance_methods:
             self._emit(f"@{cls.name}.instanceMethods = constant [{len(instance_methods)} x {{ ptr, ptr }}] [")
-            self._emit(",\n".join(f"\t{{ ptr, ptr }} {{ ptr {self._str_sym(method.name)}, ptr @{cls.name}.{method.name} }}"
+            self._emit(",\n".join(f"\t{{ ptr, ptr }} {{ ptr {self._str_sym(method.sym.name)}, ptr @{cls.name}.{method.sym.name} }}"
                                   for method in instance_methods))
             self._emit("]")
 
@@ -124,11 +123,11 @@ class LLVMIRGenerator:
             for method in static_methods:
                 self._emit_method(cls, method)
 
-    def _emit_method(self, cls: Class, method: MethodSymbol):
-        self._emit_function_impl(method,
-                                 f"{cls.name}.{method.name}",
-                                 linkage="" if method.is_static else "internal",
-                                 add_self=not method.is_static)
+    def _emit_method(self, cls: Class, ir: IRMethod):
+        self._emit_function_impl(ir,
+                                 f"{cls.name}.{ir.sym.name}",
+                                 linkage="" if ir.sym.is_static else "internal",
+                                 add_self=not ir.sym.is_static)
 
     def _emit_function_impl(self, ir_func: IRFunction, name: str, linkage: str = "", add_self: bool = False):
         params = [f"{self._type_to_ir(param_sym.type)} %{param_sym.name}" for param_sym in ir_func.sym.params]
