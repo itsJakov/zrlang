@@ -2,7 +2,8 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
-    IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf
+    IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, \
+    IRStoreField
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 
@@ -163,6 +164,43 @@ class LLVMIRGenerator:
                 self._emit(
                     f"\t{self._reg(instr.destination)} = "
                     f"load {self._type_to_ir(instr.destination.type)}, ptr {self._storage_reg(instr.source)}"
+                )
+
+            elif isinstance(instr, IRStoreField):
+                fn: str
+                match instr.field.type:
+                    case BoolType():
+                        fn = "zre_field_set_bool"
+                    case IntType():
+                        fn = "zre_field_set_int"
+                    case ObjectType(_):
+                        fn = "zre_field_set_obj"
+                    case _:
+                        fatal_error(f"Unsupported property type: {instr.field.type}")
+
+                self._emit(
+                    f"\tcall void @{fn}"
+                    f"(ptr {self._operand_value(instr.target)}, ptr {self._str_sym(instr.field.name)}, {self._operand(instr.value)})"
+                    f" ; {instr.field.name}"
+                )
+
+            elif isinstance(instr, IRLoadField):
+                fn: str
+                match instr.field.type:
+                    case BoolType():
+                        fn = "zre_field_get_bool"
+                    case IntType():
+                        fn = "zre_field_get_int"
+                    case ObjectType(_):
+                        fn = "zre_field_get_obj"
+                    case _:
+                        fatal_error(f"Unsupported property type: {instr.field.type}")
+
+                self._emit(
+                    f"\t{self._reg(instr.destination)} = "
+                    f"call {self._type_to_ir(instr.destination.type)} @{fn}"
+                    f"(ptr {self._operand_value(instr.target)}, ptr {self._str_sym(instr.field.name)})"
+                    f" ; {instr.field.name}"
                 )
 
             elif isinstance(instr, _IRCall):

@@ -2,7 +2,7 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
-    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf
+    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
@@ -126,6 +126,22 @@ class IRLowerer:
 
             temp = self._function_ctx.temp_teg(expr.type)
             self._emit(IRLoad(source=symbol, destination=temp))
+            return temp
+
+        if isinstance(expr, MemberExpr):
+            if expr.member == "services":
+                pass
+
+            if not isinstance(expr.symbol, FieldSymbol):
+                fatal_error(f"Expected a field symbol for member expression")
+
+            target = self._lower_expr(expr.target)
+            temp = self._function_ctx.temp_teg(expr.type)
+            self._emit(IRLoadField(
+                target=target,
+                field=expr.symbol,
+                destination=temp
+            ))
             return temp
 
         if isinstance(expr, CallExpr):
