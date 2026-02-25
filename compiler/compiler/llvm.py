@@ -2,7 +2,7 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
-    IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod
+    IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 
@@ -177,6 +177,10 @@ class LLVMIRGenerator:
         ir: str
         if isinstance(call, IRFuncCall):
             ir = f"{self._type_to_ir(call.func.return_type)} @_zr_{call.func.name}"
+
+        elif isinstance(call, IRStaticCall):
+            ir = f"{self._type_to_ir(call.method.return_type)} @{call.cls.name}.{call.method.name}"
+
         elif isinstance(call, IRVirtualCall):
             fn_ptr = self._temp_reg()
             self._emit(
@@ -184,11 +188,20 @@ class LLVMIRGenerator:
                 f"(ptr {self._operand_value(call.target)}, ptr {self._str_sym(call.method.name)})"
             )
             ir = f"{self._type_to_ir(call.method.return_type)} {fn_ptr}"
+
+        elif isinstance(call, IRSuperCall):
+            fn_ptr = self._temp_reg()
+            self._emit(
+                f"\t{fn_ptr} = call ptr @zre_method_super"
+                f"(ptr @{call.cls.name}, ptr {self._str_sym(call.method.name)})"
+            )
+            ir = f"{self._type_to_ir(call.method.return_type)} {fn_ptr}"
+
         else:
             fatal_error(f"Unsupported IR call type: {type(call)}")
 
         if call.destination is not None:
-            self._emit(f"\t{self._reg(call.destination)} = call {call}({args})")
+            self._emit(f"\t{self._reg(call.destination)} = call {ir}({args})")
         else:
             self._emit(f"\tcall {ir}({args})")
 
@@ -245,6 +258,7 @@ class LLVMIRGenerator:
             case int(i):
                 return f"{i}"
             case str(s):
-                fatal_error("no strings just yet")
+                return "null"
+                print("no strings just yet")
             case _:
                 fatal_error(f"Unknown operand type: {type(operand)}")

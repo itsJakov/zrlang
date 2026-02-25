@@ -80,12 +80,30 @@ class IRFuncCall(_IRCall):
 
 
 @dataclass
+class IRStaticCall(_IRCall):
+    cls: Class
+    method: MethodSymbol
+
+    def __repr__(self):
+        return f"static_call {self.cls.name} {self.method.name} ({', '.join(str(a) for a in self.args)}) -> {self.destination}"
+
+
+@dataclass
 class IRVirtualCall(_IRCall):
     method: MethodSymbol
     target: IROperand
 
     def __repr__(self):
         return f"virtual_call {self.target} {self.method.name} ({', '.join(str(a) for a in self.args)}) -> {self.destination}"
+
+
+@dataclass
+class IRSuperCall(_IRCall):
+    cls: Class
+    method: MethodSymbol
+
+    def __repr__(self):
+        return f"super_call {self.cls.name} {self.method.name} ({', '.join(str(a) for a in self.args)}) -> {self.destination}"
 
 
 @dataclass
@@ -101,7 +119,7 @@ IRInstruction = Union[
     IRReturn,
     IRLoad, IRStore,
     IRLoadField, IRStoreField,
-    IRFuncCall, IRVirtualCall,
+    IRFuncCall, IRStaticCall, IRVirtualCall, IRSuperCall,
     IRAlloc
 ]
 

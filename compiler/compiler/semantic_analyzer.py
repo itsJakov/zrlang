@@ -407,6 +407,9 @@ class SemanticAnalyzer:
                     f"Accessing unknown method {expr.member} on Object, assuming it returns Object",
                     expr
                 )
+                # Dynamic member access creates a unique method symbol for every access
+                # Kinda shit, but that's what you have to do to be cool as ObjC
+                expr.symbol = MethodSymbol(expr.member, is_static=False, params=[], return_type=ObjectType(StandardTypes.OBJECT_CLASS))
                 return FunctionType(
                     param_types=None,
                     return_type=ObjectType(StandardTypes.OBJECT_CLASS)

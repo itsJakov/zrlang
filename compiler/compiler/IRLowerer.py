@@ -2,7 +2,7 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
-    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod
+    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
@@ -29,6 +29,7 @@ class IRLowerer:
         self._function_ctx: Optional[_FunctionCtx] = None
         self._current_func: Optional[IRFunction] = None
         self._current_block: Optional[list[IRInstruction]] = []
+        self._current_cls: Optional[Class] = None
 
     def lower(self, funcs: list[FunctionSymbol], classes: list[Class]) -> tuple[list[IRFunction], list[IRClass]]:
         ir_funcs = [self._lower_function(func) for func in funcs]
@@ -39,10 +40,13 @@ class IRLowerer:
         self._current_block.append(i)
 
     def _lower_class(self, cls: Class) -> IRClass:
-        return IRClass(
+        self._current_cls = cls
+        ir_cls = IRClass(
             sym=cls,
-            methods=[self._lower_function(method) for method in cls.members if isinstance(method, MethodSymbol)]
+            methods=[self._lower_function(method) for method in cls.members.values() if isinstance(method, MethodSymbol)]
         )
+        self._current_cls = None
+        return ir_cls
 
     def _lower_function(self, func: FunctionSymbol) -> IRFunction | IRMethod:
         ir_func = IRFunction(func)
@@ -154,12 +158,26 @@ class IRLowerer:
             if not isinstance(method, MethodSymbol):
                 fatal_error(f"Expected a method symbol for member call expression")
 
-            if isinstance(callee.member, (SymbolExpr, ParameterSymbol)) and callee.member.name == "super":
+            if isinstance(callee.target, SymbolExpr) and callee.target.name == "super":
                 # Super method call
-                pass
+                destination = self._function_ctx.temp_teg(call.type) if method.return_type != VoidType() else None
+                self._emit(IRSuperCall(
+                    method=method,
+                    cls=self._current_cls.parent,
+                    args=args,
+                    destination=destination
+                ))
+                return destination
             elif isinstance(callee.target, SymbolExpr) and isinstance(callee.target.symbol, Class):
                 # Static method call
-                pass
+                destination = self._function_ctx.temp_teg(call.type) if method.return_type != VoidType() else None
+                self._emit(IRStaticCall(
+                    cls=callee.target.symbol,
+                    method=callee.symbol,
+                    args=args,
+                    destination=destination
+                ))
+                return destination
             else:
                 # Instance method call
                 destination = self._function_ctx.temp_teg(call.type) if callee.symbol.return_type != VoidType() else None
