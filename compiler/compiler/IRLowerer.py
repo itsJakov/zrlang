@@ -2,7 +2,7 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
-    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall
+    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
@@ -53,7 +53,9 @@ class IRLowerer:
         self._current_func = ir_func
         self._function_ctx = _FunctionCtx()
         self._current_block = ir_func.body
-        self._lower_block(func.node.block)
+        returns = self._lower_block(func.node.block)
+        if not returns:
+            self._emit(IRReturn(value=None))
         self._function_ctx = None
         self._function_ctx = None
         self._current_block = None
@@ -118,6 +120,10 @@ class IRLowerer:
             symbol = expr.symbol
             if not isinstance(symbol, (ParameterSymbol, LocalSymbol)):
                 fatal_error("Symbol expressions have to resolve to parameter or local symbols")
+
+            if expr.name == "self":
+                return IRSelf()
+
             temp = self._function_ctx.temp_teg(expr.type)
             self._emit(IRLoad(source=symbol, destination=temp))
             return temp

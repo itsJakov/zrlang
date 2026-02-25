@@ -2,7 +2,7 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
-    IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall
+    IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 
@@ -141,7 +141,7 @@ class LLVMIRGenerator:
 
         for param in ir_func.sym.params:
             self._emit(f"\t%p.{param.name} = alloca {self._type_to_ir(param.type)}")
-            self._emit(f"\tstore {self._type_to_ir(param.type)} %{param}")
+            self._emit(f"\tstore {self._type_to_ir(param.type)} %{param.name}, ptr %p.{param.name}")
 
         self._emit(";")
         self._temp_idx = 0
@@ -186,6 +186,7 @@ class LLVMIRGenerator:
             self._emit(
                 f"\t{fn_ptr} = call ptr @zre_method_virtual"
                 f"(ptr {self._operand_value(call.target)}, ptr {self._str_sym(call.method.name)})"
+                f" ; {call.method.name}"
             )
             ir = f"{self._type_to_ir(call.method.return_type)} {fn_ptr}"
 
@@ -194,6 +195,7 @@ class LLVMIRGenerator:
             self._emit(
                 f"\t{fn_ptr} = call ptr @zre_method_super"
                 f"(ptr @{call.cls.name}, ptr {self._str_sym(call.method.name)})"
+                f" ; {call.method.name}"
             )
             ir = f"{self._type_to_ir(call.method.return_type)} {fn_ptr}"
 
@@ -240,6 +242,8 @@ class LLVMIRGenerator:
         match operand:
             case IRReg(idx) as r:
                 return self._type_to_ir(r.type)
+            case IRSelf(_):
+                return "ptr"
             case bool(_):
                 return "i1"
             case int(_):
@@ -253,6 +257,8 @@ class LLVMIRGenerator:
         match operand:
             case IRReg(idx):
                 return f"%.{idx}"
+            case IRSelf():
+                return "%self"
             case bool(b):
                 return f"{1 if b else 0}"
             case int(i):

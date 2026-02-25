@@ -15,7 +15,13 @@ class IRReg:
         return f"%{self.idx}"
 
 
-IROperand = Union[IRReg, bool, int, str]
+@dataclass
+class IRSelf:
+    def __repr__(self):
+        return "%self"
+
+
+IROperand = Union[IRReg, IRSelf, bool, int, str]
 IRStorage = Union[LocalSymbol, ParameterSymbol]
 
 
