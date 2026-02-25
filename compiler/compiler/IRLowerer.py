@@ -2,11 +2,11 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
-    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField
+    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, IRBinaryOp
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
-    MemberExpr, VarStmt, AllocExpr, AssignStmt
+    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr
 
 
 def fatal_error(msg: str) -> NoReturn:
@@ -146,6 +146,19 @@ class IRLowerer:
 
         if isinstance(expr, CallExpr):
             return self._lower_call_expr(expr)
+
+        if isinstance(expr, BinaryExpr):
+            lhs = self._lower_expr(expr.lhs)
+            rhs = self._lower_expr(expr.rhs)
+
+            temp = self._function_ctx.temp_teg(expr.type)
+            self._emit(IRBinaryOp(
+                op=expr.op,
+                lhs=lhs,
+                rhs=rhs,
+                destination=temp
+            ))
+            return temp
 
         if isinstance(expr, AllocExpr):
             temp = self._function_ctx.temp_teg(expr.type)

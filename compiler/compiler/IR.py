@@ -4,6 +4,7 @@ from typing import Union, Optional
 
 from compiler.symbols import FunctionSymbol, ParameterSymbol, FieldSymbol, LocalSymbol, MethodSymbol, Class
 from compiler.types import Type
+from lang_ast import BinaryOperation
 
 
 @dataclass
@@ -31,6 +32,17 @@ class IRReturn:
 
     def __repr__(self):
         return f"return {self.value}"
+
+
+@dataclass
+class IRBinaryOp:
+    op: BinaryOperation
+    lhs: IROperand
+    rhs: IROperand
+    destination: IRReg
+
+    def __repr__(self):
+        return f"binary_op {self.lhs} {self.op.value} {self.rhs} -> {self.destination}"
 
 
 @dataclass
@@ -123,6 +135,7 @@ class IRAlloc:
 
 IRInstruction = Union[
     IRReturn,
+    IRBinaryOp,
     IRLoad, IRStore,
     IRLoadField, IRStoreField,
     IRFuncCall, IRStaticCall, IRVirtualCall, IRSuperCall,

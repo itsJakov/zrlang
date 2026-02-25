@@ -3,9 +3,10 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
     IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, \
-    IRStoreField
+    IRStoreField, IRBinaryOp
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
+from lang_ast import BinaryOperation
 
 
 def fatal_error(msg: str) -> NoReturn:
@@ -156,6 +157,28 @@ class LLVMIRGenerator:
                     self._emit("\tret void")
                 else:
                     self._emit(f"\tret {self._operand(instr.value)}")
+
+            elif isinstance(instr, IRBinaryOp):
+                if instr.op == BinaryOperation.AND or instr.op == BinaryOperation.OR:
+                    fatal_error("Logical operators AND and OR are not implemented")
+
+                ops: dict[BinaryOperation, str] = {
+                    BinaryOperation.ADD: "add",
+                    BinaryOperation.SUB: "sub",
+                    BinaryOperation.MUL: "mul",
+                    BinaryOperation.DIV: "sdiv",
+                    BinaryOperation.MOD: "srem",
+                    BinaryOperation.EQ: "icmp eq",
+                    BinaryOperation.NEQ: "icmp ne",
+                    BinaryOperation.GT: "icmp sgt",
+                    BinaryOperation.GTE: "icmp sge",
+                    BinaryOperation.LT: "icmp slt",
+                    BinaryOperation.LTE: "icmp sle",
+                }
+                self._emit(
+                    f"\t{self._reg(instr.destination)} = {ops[instr.op]} {self._operand_type(instr.lhs)} "
+                    f"{self._operand_value(instr.lhs)}, {self._operand_value(instr.rhs)}"
+                )
 
             elif isinstance(instr, IRStore):
                 self._emit(f"\tstore {self._operand(instr.value)}, ptr {self._storage_reg(instr.destination)}")
