@@ -304,7 +304,8 @@ class LLVMIRGenerator:
             case int(i):
                 return f"{i}"
             case str(s):
-                return "null"
-                print("no strings just yet")
+                temp = self._temp_reg()
+                self._emit(f"\t{temp} = call ptr @zre_string_literal(ptr {self._str_sym(s)})")
+                return temp
             case _:
                 fatal_error(f"Unknown operand type: {type(operand)}")
