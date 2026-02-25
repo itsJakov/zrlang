@@ -122,3 +122,32 @@ class IRMethod(IRFunction):
 class IRClass:
     sym: Class
     methods: list[IRMethod] = field(default_factory=list)
+
+
+def ir_to_str(funcs: list[IRFunction], classes: list[IRClass]) -> str:
+    result = ""
+
+    for cls_idx, cls in enumerate(classes):
+        result += f"Class {cls.sym.name}:\n"
+        for i, method in enumerate(cls.methods):
+            result += f"\tMethod {method.sym.name}:\n"
+            for instr in method.body:
+                result += f"\t\t{instr}\n"
+            # Add newline after each method except the last one in the class
+            if i < len(cls.methods) - 1:
+                result += "\n"
+
+        # Add newline after each class except the last one
+        if cls_idx < len(classes) - 1:
+            result += "\n"
+
+    # Add newline between classes and functions if both exist
+    if classes and funcs:
+        result += "\n"
+
+    for func in funcs:
+        result += f"Function {func.sym.name}:\n"
+        for instr in func.body:
+            result += f"\t{instr}\n"
+
+    return result
