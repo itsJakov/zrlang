@@ -237,6 +237,7 @@ class LLVMIRGenerator:
                 f" ; {call.method.name}"
             )
             ir = f"{self._type_to_ir(call.method.return_type)} {fn_ptr}"
+            args.insert(0, self._operand(IRSelf()))
 
         else:
             fatal_error(f"Unsupported IR call type: {type(call)}")
