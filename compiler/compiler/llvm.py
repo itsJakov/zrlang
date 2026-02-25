@@ -172,7 +172,7 @@ class LLVMIRGenerator:
                 self._emit(f"\t{self._reg(instr.destination)} = call ptr @zre_alloc(ptr @{instr.cls.name})")
 
     def _emit_call(self, call: _IRCall):
-        args = ", ".join(self._operand(arg) for arg in call.args)
+        args = [self._operand(arg) for arg in call.args]
 
         ir: str
         if isinstance(call, IRFuncCall):
@@ -189,6 +189,7 @@ class LLVMIRGenerator:
                 f" ; {call.method.name}"
             )
             ir = f"{self._type_to_ir(call.method.return_type)} {fn_ptr}"
+            args.insert(0, self._operand(call.target))
 
         elif isinstance(call, IRSuperCall):
             fn_ptr = self._temp_reg()
@@ -203,9 +204,9 @@ class LLVMIRGenerator:
             fatal_error(f"Unsupported IR call type: {type(call)}")
 
         if call.destination is not None:
-            self._emit(f"\t{self._reg(call.destination)} = call {ir}({args})")
+            self._emit(f"\t{self._reg(call.destination)} = call {ir}({", ".join(args)})")
         else:
-            self._emit(f"\tcall {ir}({args})")
+            self._emit(f"\tcall {ir}({", ".join(args)})")
 
     def _temp_reg(self) -> str:
         self._temp_idx += 1
@@ -242,7 +243,7 @@ class LLVMIRGenerator:
         match operand:
             case IRReg(idx) as r:
                 return self._type_to_ir(r.type)
-            case IRSelf(_):
+            case IRSelf():
                 return "ptr"
             case bool(_):
                 return "i1"
