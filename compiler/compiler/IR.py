@@ -46,6 +46,37 @@ class IRBinaryOp:
 
 
 @dataclass
+class IRIf:
+    condition: IROperand
+    true_block: list['IRInstruction']
+    false_block: Optional[list['IRInstruction']]
+
+    def __repr__(self):
+        return self._repr_with_indent(0)
+
+    def _repr_with_indent(self, indent: int) -> str:
+        tab = "\t" * indent
+        true_count = len(self.true_block)
+        false_count = len(self.false_block) if self.false_block else 0
+        lines = [f"{tab}if {self.condition} then {true_count} instructions else {false_count} instructions"]
+        if self.true_block:
+            lines.append(f"{tab}[then]")
+            for sub in self.true_block:
+                if isinstance(sub, IRIf):
+                    lines.append(sub._repr_with_indent(indent + 1))
+                else:
+                    lines.append("\t" * (indent + 1) + str(sub))
+        if self.false_block:
+            lines.append(f"{tab}[else]")
+            for sub in self.false_block:
+                if isinstance(sub, IRIf):
+                    lines.append(sub._repr_with_indent(indent + 1))
+                else:
+                    lines.append("\t" * (indent + 1) + str(sub))
+        return "\n".join(lines)
+
+
+@dataclass
 class IRLoad:
     source: IRStorage
     destination: IRReg
@@ -136,6 +167,7 @@ class IRAlloc:
 IRInstruction = Union[
     IRReturn,
     IRBinaryOp,
+    IRIf,
     IRLoad, IRStore,
     IRLoadField, IRStoreField,
     IRFuncCall, IRStaticCall, IRVirtualCall, IRSuperCall,
@@ -161,6 +193,13 @@ class IRClass:
     methods: list[IRMethod] = field(default_factory=list)
 
 
+def instr_to_str(instr: 'IRInstruction', indent: int) -> str:
+    if isinstance(instr, IRIf):
+        return instr._repr_with_indent(indent)
+    tab = "\t" * indent
+    return f"{tab}{instr}"
+
+
 def ir_to_str(funcs: list[IRFunction], classes: list[IRClass]) -> str:
     result = ""
 
@@ -169,7 +208,7 @@ def ir_to_str(funcs: list[IRFunction], classes: list[IRClass]) -> str:
         for i, method in enumerate(cls.methods):
             result += f"\tMethod {method.sym.name}:\n"
             for instr in method.body:
-                result += f"\t\t{instr}\n"
+                result += instr_to_str(instr, 2) + "\n"
             # Add newline after each method except the last one in the class
             if i < len(cls.methods) - 1:
                 result += "\n"
@@ -185,6 +224,6 @@ def ir_to_str(funcs: list[IRFunction], classes: list[IRClass]) -> str:
     for func in funcs:
         result += f"Function {func.sym.name}:\n"
         for instr in func.body:
-            result += f"\t{instr}\n"
+            result += instr_to_str(instr, 1) + "\n"
 
     return result

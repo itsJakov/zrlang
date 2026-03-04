@@ -2,11 +2,11 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
-    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, IRBinaryOp
+    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, IRBinaryOp, IRIf
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
-    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr
+    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt
 
 
 def fatal_error(msg: str) -> NoReturn:
@@ -14,8 +14,8 @@ def fatal_error(msg: str) -> NoReturn:
 
 
 class _FunctionCtx:
-    def __init__(self):
-        # self._live_locals: set[LocalSymbol] = set()
+    def __init__(self, func: IRFunction):
+        self.func: IRFunction = func
         self._temp_idx: int = -1
 
     def temp_teg(self, t: Type) -> IRReg:
@@ -23,12 +23,18 @@ class _FunctionCtx:
         return IRReg(idx=self._temp_idx, type=t)
 
 
+class _BlockCtx:
+    def __init__(self, parent: Optional['_BlockCtx'] = None):
+        self.parent: Optional['_BlockCtx'] = parent
+        self.block: list[IRInstruction] = []
+        # self._live_locals: set[LocalSymbol] = set()
+
+
 class IRLowerer:
     def __init__(self):
         # TODO: ugly
+        self._block_ctx: Optional[_BlockCtx] = None
         self._function_ctx: Optional[_FunctionCtx] = None
-        self._current_func: Optional[IRFunction] = None
-        self._current_block: Optional[list[IRInstruction]] = []
         self._current_cls: Optional[Class] = None
 
     def lower(self, funcs: list[FunctionSymbol], classes: list[Class]) -> tuple[list[IRFunction], list[IRClass]]:
@@ -36,8 +42,17 @@ class IRLowerer:
         ir_classes = [self._lower_class(cls) for cls in classes]
         return ir_funcs, ir_classes
 
+    def _push_block(self):
+        self._block_ctx = _BlockCtx(parent=self._block_ctx)
+
+    def _pop_block(self):
+        if self._block_ctx.parent is not None:
+            self._block_ctx = self._block_ctx.parent
+        else:
+            raise Exception("Cannot pop top-level block")
+
     def _emit(self, i: IRInstruction):
-        self._current_block.append(i)
+        self._block_ctx.block.append(i)
 
     def _lower_class(self, cls: Class) -> IRClass:
         self._current_cls = cls
@@ -50,15 +65,16 @@ class IRLowerer:
 
     def _lower_function(self, func: FunctionSymbol) -> IRFunction | IRMethod:
         ir_func = IRFunction(func)
-        self._current_func = ir_func
-        self._function_ctx = _FunctionCtx()
-        self._current_block = ir_func.body
+        self._function_ctx = _FunctionCtx(ir_func)
+        self._block_ctx = _BlockCtx()
+
         returns = self._lower_block(func.node.block)
         if not returns:
             self._emit(IRReturn(value=None))
+        ir_func.body = self._block_ctx.block
+
         self._function_ctx = None
-        self._function_ctx = None
-        self._current_block = None
+        self._block_ctx = None
         return ir_func
 
     # Returns True if the block has a return statement
@@ -69,7 +85,7 @@ class IRLowerer:
                 return True
 
             elif isinstance(stmt, VarStmt):
-                self._current_func.locals.append(stmt.local)
+                self._function_ctx.func.locals.append(stmt.local)
                 self._emit(IRStore(
                     destination=stmt.local,
                     value=self._lower_expr(stmt.expr)
@@ -97,6 +113,27 @@ class IRLowerer:
                         ))
                 else:
                     fatal_error(f"Not an assignable expr {type(stmt.assignee)}")
+
+            elif isinstance(stmt, IfStmt):
+                condition = self._lower_expr(stmt.condition)
+
+                self._push_block()
+                self._lower_block(stmt.block)
+                true_block = self._block_ctx.block
+                self._pop_block()
+
+                false_block: Optional[list[IRInstruction]] = None
+                if stmt.else_block:
+                    self._push_block()
+                    self._lower_block(stmt.else_block)
+                    false_block = self._block_ctx.block
+                    self._pop_block()
+
+                self._emit(IRIf(
+                    condition=condition,
+                    true_block=true_block,
+                    false_block=false_block
+                ))
 
             elif isinstance(stmt, ExprStmt):
                 self._lower_expr(stmt.expr)
