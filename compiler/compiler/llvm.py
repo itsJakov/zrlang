@@ -3,7 +3,7 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
     IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, \
-    IRStoreField, IRBinaryOp, IRIf
+    IRStoreField, IRBinaryOp, IRBranch
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 from lang_ast import BinaryOperation
@@ -20,7 +20,7 @@ class LLVMIRGenerator:
         self._lines: list[str] = []
         self._strings: list[str] = []
         self._temp_idx: int = 0
-        self._if_idx: int = 0
+        self._if_idx: int = -1
 
         self._declarations = [
             "declare ptr @zre_alloc(ptr)",
@@ -180,8 +180,8 @@ class LLVMIRGenerator:
                     f"{self._operand_value(instr.lhs)}, {self._operand_value(instr.rhs)}"
                 )
 
-            elif isinstance(instr, IRIf):
-                self._emit_if(instr)
+            elif isinstance(instr, IRBranch):
+                self._emit_branch(instr)
 
             elif isinstance(instr, IRStore):
                 self._emit(f"\tstore {self._operand(instr.value)}, ptr {self._storage_reg(instr.destination)}")
@@ -273,26 +273,25 @@ class LLVMIRGenerator:
         else:
             self._emit(f"\tcall {ir}({", ".join(args)})")
 
-    def _emit_if(self, if_instr: IRIf):
-        if_idx = 0
+    def _emit_branch(self, branch: IRBranch):
         self._if_idx += 1
 
         end_label = f"if.end.{self._if_idx}"
         true_label = f"if.true.{self._if_idx}"
-        if if_instr.false_block:
+        if branch.false_block:
             false_label = f"if.false.{self._if_idx}"
         else:
             false_label = end_label
 
-        self._emit(f"\tbr {self._operand(if_instr.condition)}, label %{true_label}, label %{false_label}")
+        self._emit(f"\tbr {self._operand(branch.condition)}, label %{true_label}, label %{false_label}")
 
         self._emit(f"{true_label}:")
-        self._emit_block(if_instr.true_block)
+        self._emit_block(branch.true_block)
         self._emit(f"\tbr label %{end_label}")
 
-        if if_instr.false_block:
+        if branch.false_block:
             self._emit(f"{false_label}:")
-            self._emit_block(if_instr.false_block)
+            self._emit_block(branch.false_block)
             self._emit(f"\tbr label %{end_label}")
 
         self._emit(f"{end_label}:")
