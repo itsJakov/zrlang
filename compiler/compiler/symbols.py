@@ -14,6 +14,9 @@ class LocalSymbol(Symbol):
     type: Type
     node: Optional['VarStmt'] = None
 
+    def __hash__(self):
+        return id(self)
+
 
 @dataclass
 class ParameterSymbol(Symbol):

@@ -156,6 +156,22 @@ class IRSuperCall(_IRCall):
 
 
 @dataclass
+class IRRetain:
+    obj: IRReg
+
+    def __repr__(self):
+        return f"retain {self.obj}"
+
+
+@dataclass
+class IRRelease:
+    obj: IRReg
+
+    def __repr__(self):
+        return f"release {self.obj}"
+
+
+@dataclass
 class IRAlloc:
     cls: Class
     destination: IRReg
@@ -171,6 +187,7 @@ IRInstruction = Union[
     IRLoad, IRStore,
     IRLoadField, IRStoreField,
     IRFuncCall, IRStaticCall, IRVirtualCall, IRSuperCall,
+    IRRetain, IRRelease,
     IRAlloc
 ]
 

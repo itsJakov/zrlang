@@ -3,7 +3,7 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
     IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, \
-    IRStoreField, IRBinaryOp, IRBranch
+    IRStoreField, IRBinaryOp, IRBranch, IRRetain, IRRelease
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 from lang_ast import BinaryOperation
@@ -24,6 +24,8 @@ class LLVMIRGenerator:
 
         self._declarations = [
             "declare ptr @zre_alloc(ptr)",
+            "declare void @zre_retain(ptr)",
+            "declare void @zre_release(ptr)",
             "declare i1 @zre_field_get_bool(ptr, ptr)",
             "declare i64 @zre_field_get_int(ptr, ptr)",
             "declare ptr @zre_field_get_obj(ptr, ptr)",
@@ -231,6 +233,12 @@ class LLVMIRGenerator:
 
             elif isinstance(instr, _IRCall):
                 self._emit_call(instr)
+
+            elif isinstance(instr, IRRetain):
+                self._emit(f"\tcall void @zre_retain(ptr {self._reg(instr.obj)})")
+
+            elif isinstance(instr, IRRelease):
+                self._emit(f"\tcall void @zre_release(ptr {self._reg(instr.obj)})")
 
             elif isinstance(instr, IRAlloc):
                 self._emit(f"\t{self._reg(instr.destination)} = call ptr @zre_alloc(ptr @{instr.cls.name})")
