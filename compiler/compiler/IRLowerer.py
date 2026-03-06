@@ -2,9 +2,10 @@ import sys
 from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
-    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, IRBinaryOp, IRBranch
+    IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, IRBinaryOp, \
+    IRBranch, IRRelease
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
-from compiler.types import VoidType, Type
+from compiler.types import VoidType, Type, ObjectType
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
     MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt
 
@@ -18,7 +19,7 @@ class _FunctionCtx:
         self.func: IRFunction = func
         self._temp_idx: int = -1
 
-    def temp_teg(self, t: Type) -> IRReg:
+    def temp_reg(self, t: Type) -> IRReg:
         self._temp_idx += 1
         return IRReg(idx=self._temp_idx, type=t)
 
@@ -27,7 +28,7 @@ class _BlockCtx:
     def __init__(self, parent: Optional['_BlockCtx'] = None):
         self.parent: Optional['_BlockCtx'] = parent
         self.block: list[IRInstruction] = []
-        # self._live_locals: set[LocalSymbol] = set()
+        self.live_locals: set[LocalSymbol] = set()
 
 
 class IRLowerer:
@@ -46,10 +47,10 @@ class IRLowerer:
         self._block_ctx = _BlockCtx(parent=self._block_ctx)
 
     def _pop_block(self):
-        if self._block_ctx.parent is not None:
-            self._block_ctx = self._block_ctx.parent
-        else:
-            raise Exception("Cannot pop top-level block")
+        for local in self._block_ctx.live_locals:
+            pass
+
+        self._block_ctx = self._block_ctx.parent
 
     def _emit(self, i: IRInstruction):
         self._block_ctx.block.append(i)
@@ -66,15 +67,15 @@ class IRLowerer:
     def _lower_function(self, func: FunctionSymbol) -> IRFunction | IRMethod:
         ir_func = IRFunction(func)
         self._function_ctx = _FunctionCtx(ir_func)
-        self._block_ctx = _BlockCtx()
 
+        self._push_block()
         returns = self._lower_block(func.node.block)
         if not returns:
             self._emit(IRReturn(value=None))
         ir_func.body = self._block_ctx.block
+        self._pop_block()
 
         self._function_ctx = None
-        self._block_ctx = None
         return ir_func
 
     # Returns True if the block has a return statement
@@ -86,6 +87,7 @@ class IRLowerer:
 
             elif isinstance(stmt, VarStmt):
                 self._function_ctx.func.locals.append(stmt.local)
+                self._block_ctx.live_locals.add(stmt.local)
                 self._emit(IRStore(
                     destination=stmt.local,
                     value=self._lower_expr(stmt.expr)
@@ -97,6 +99,9 @@ class IRLowerer:
                 if isinstance(stmt.assignee, (SymbolExpr, MemberExpr)):
                     assignee_symbol = stmt.assignee.symbol
                     if isinstance(assignee_symbol, (LocalSymbol, ParameterSymbol)):
+                        if isinstance(assignee_symbol, LocalSymbol):
+                            self._block_ctx.live_locals.add(assignee_symbol)
+
                         self._emit(IRStore(
                             destination=assignee_symbol,
                             value=value
@@ -161,19 +166,16 @@ class IRLowerer:
             if expr.name == "self":
                 return IRSelf()
 
-            temp = self._function_ctx.temp_teg(expr.type)
+            temp = self._function_ctx.temp_reg(expr.type)
             self._emit(IRLoad(source=symbol, destination=temp))
             return temp
 
         if isinstance(expr, MemberExpr):
-            if expr.member == "services":
-                pass
-
             if not isinstance(expr.symbol, FieldSymbol):
                 fatal_error(f"Expected a field symbol for member expression")
 
             target = self._lower_expr(expr.target)
-            temp = self._function_ctx.temp_teg(expr.type)
+            temp = self._function_ctx.temp_reg(expr.type)
             self._emit(IRLoadField(
                 target=target,
                 field=expr.symbol,
@@ -188,7 +190,7 @@ class IRLowerer:
             lhs = self._lower_expr(expr.lhs)
             rhs = self._lower_expr(expr.rhs)
 
-            temp = self._function_ctx.temp_teg(expr.type)
+            temp = self._function_ctx.temp_reg(expr.type)
             self._emit(IRBinaryOp(
                 op=expr.op,
                 lhs=lhs,
@@ -198,7 +200,7 @@ class IRLowerer:
             return temp
 
         if isinstance(expr, AllocExpr):
-            temp = self._function_ctx.temp_teg(expr.type)
+            temp = self._function_ctx.temp_reg(expr.type)
             self._emit(IRAlloc(
                 cls=expr.cls,
                 destination=temp
@@ -217,7 +219,7 @@ class IRLowerer:
             if not isinstance(callee.symbol, FunctionSymbol):
                 fatal_error(f"Expected a function symbol for call expression")
 
-            destination = self._function_ctx.temp_teg(call.type) if callee.symbol.return_type != VoidType() else None
+            destination = self._function_ctx.temp_reg(call.type) if callee.symbol.return_type != VoidType() else None
             self._emit(IRFuncCall(
                 func=callee.symbol,
                 args=args,
@@ -232,7 +234,7 @@ class IRLowerer:
 
             if isinstance(callee.target, SymbolExpr) and callee.target.name == "super":
                 # Super method call
-                destination = self._function_ctx.temp_teg(call.type) if method.return_type != VoidType() else None
+                destination = self._function_ctx.temp_reg(call.type) if method.return_type != VoidType() else None
                 self._emit(IRSuperCall(
                     method=method,
                     cls=self._current_cls.parent,
@@ -242,7 +244,7 @@ class IRLowerer:
                 return destination
             elif isinstance(callee.target, SymbolExpr) and isinstance(callee.target.symbol, Class):
                 # Static method call
-                destination = self._function_ctx.temp_teg(call.type) if method.return_type != VoidType() else None
+                destination = self._function_ctx.temp_reg(call.type) if method.return_type != VoidType() else None
                 self._emit(IRStaticCall(
                     cls=callee.target.symbol,
                     method=callee.symbol,
@@ -252,7 +254,7 @@ class IRLowerer:
                 return destination
             else:
                 # Instance method call
-                destination = self._function_ctx.temp_teg(call.type) if callee.symbol.return_type != VoidType() else None
+                destination = self._function_ctx.temp_reg(call.type) if callee.symbol.return_type != VoidType() else None
                 self._emit(IRVirtualCall(
                     method=method,
                     target=self._lower_expr(callee.target),
