@@ -47,9 +47,6 @@ class IRLowerer:
         self._block_ctx = _BlockCtx(parent=self._block_ctx)
 
     def _pop_block(self):
-        for local in self._block_ctx.live_locals:
-            pass
-
         self._block_ctx = self._block_ctx.parent
 
     def _emit(self, i: IRInstruction):
@@ -98,7 +95,13 @@ class IRLowerer:
                     value, owned = self._lower_expr(stmt.expr)
                     if not owned:
                         self._retain(value)
-                    # TODO: Release live locals here
+
+                    # TODO: This doesn't actually work because of nested blocks and stuff
+                    for local in self._block_ctx.live_locals:
+                        tmp = self._function_ctx.temp_reg(local.type)
+                        self._emit(IRLoad(source=local, destination=tmp))
+                        self._release(tmp)
+
                     self._emit(IRReturn(value))
                 return True
 
@@ -298,7 +301,7 @@ class IRLowerer:
                 return destination
             else:
                 # Instance method call
-                destination = self._function_ctx.temp_reg(call.type) if callee.symbol.return_type != VoidType() else None
+                destination = self._function_ctx.temp_reg(call.type) if method.return_type != VoidType() else None
                 target, owned = self._lower_expr(callee.target)
                 self._emit(IRVirtualCall(
                     method=method,

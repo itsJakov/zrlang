@@ -19,30 +19,36 @@ func main() -> Int {
     print("=== Testing all services ===")
     logger.testAllServices()
     
+    print("=== RETURNING SOON ===")
     return 0
 }
 
 class LoggerService {
-    func log(message: String) {
+    func log(message: String) -> Object {
+        return new Object
     }
     
-    func test() {
+    func test() -> Object {
         print("Testing Service: ".concat(self.toString()))
         self.log("TEST MESSAGE")
+        return new Object
     }
 }
 
 class ConsoleLoggerService : LoggerService {
-    override func log(message: String) {
+    override func log(message: String) -> Object {
         print(message)
+        return new Object
     }
 }
 
 class FileLoggerService : LoggerService {
-    override func log(message: String) {
+    override func log(message: String) -> Object{
         var newFile = new File
         newFile.initWithPath("log.txt")
         newFile.append(message)
+        
+        return new Object
     }
 }
 
