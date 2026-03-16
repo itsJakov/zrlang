@@ -84,7 +84,9 @@ class LLVMIRGenerator:
         field_symbols = [m for m in cls.members.values() if isinstance(m, FieldSymbol)]
         if field_symbols:
             self._emit(f"@{cls.name}.fields = constant [{len(field_symbols)} x {{ ptr, i64 }}] [")
-            self._emit(",\n".join(f"\t{{ ptr, i64 }} {{ ptr {self._str_sym(field.name)}, i64 0 }}"
+            def is_object(field):
+                return isinstance(field.type, ObjectType)
+            self._emit(",\n".join(f"\t{{ ptr, i64 }} {{ ptr {self._str_sym(field.name)}, i64 {0 if is_object(field) else 1} }}"
                                   for field in field_symbols))
             self._emit("]")
 
