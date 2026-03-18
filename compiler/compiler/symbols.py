@@ -1,8 +1,7 @@
 from abc import ABC
-from dataclasses import dataclass, field
-from typing import Optional, Union
+from dataclasses import dataclass
+from typing import Optional
 
-from lang_ast import FuncDecorator
 from .types import Type, FunctionType
 
 
@@ -10,23 +9,26 @@ from .types import Type, FunctionType
 class Symbol(ABC):
     name: str
 
-
 @dataclass
 class LocalSymbol(Symbol):
     type: Type
+    node: Optional['VarStmt'] = None
+
+    def __hash__(self):
+        return id(self)
 
 
 @dataclass
 class ParameterSymbol(Symbol):
     type: Type
+    node: Optional['FuncParam'] = None
 
 
 @dataclass
 class FunctionSymbol(Symbol):
-    # FunctionSymbol represents both methods and standalone functions. Not a good idea probably
     params: list[ParameterSymbol]
     return_type: Type
-    decorators: set[FuncDecorator] = field(default_factory=set)
+    node: Optional['FuncDecl'] = None
 
     def function_type(self) -> FunctionType:
         return FunctionType(
@@ -41,6 +43,7 @@ class ClassMemberSymbol(Symbol, ABC):
 @dataclass
 class FieldSymbol(ClassMemberSymbol):
     type: Type
+    node: Optional['ClassField'] = None
 
 @dataclass
 class MethodSymbol(FunctionSymbol, ClassMemberSymbol):
@@ -51,16 +54,19 @@ class MethodSymbol(FunctionSymbol, ClassMemberSymbol):
 class Class(Symbol):
     members: dict[str, ClassMemberSymbol]
     parent: Optional['Class'] = None
+    node: Optional['ClassDecl'] = None
 
     def __init__(
         self,
         name: str,
         symbols: Optional[list[ClassMemberSymbol]] = None,
-        parent: Optional['Class'] = None
+        parent: Optional['Class'] = None,
+        node: Optional['ClassDecl'] = None
     ):
         super().__init__(name)
         self.members = {}
         self.parent = parent
+        self.node = node
         if symbols:
             for symbol in symbols:
                 self.members[symbol.name] = symbol

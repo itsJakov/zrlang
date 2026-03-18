@@ -1,6 +1,8 @@
 import subprocess
 import sys
 
+from compiler.IR import ir_to_str
+from compiler.IRLowerer import IRLowerer
 from lang_ast import parse
 from compiler import SemanticAnalyzer, LLVMIRGenerator
 
@@ -17,30 +19,36 @@ func main() -> Int {
     print("=== Testing all services ===")
     logger.testAllServices()
     
+    print("=== RETURNING SOON ===")
     return 0
 }
 
 class LoggerService {
-    func log(message: String) {
+    func log(message: String) -> Object {
+        return new Object
     }
     
-    func test() {
+    func test() -> Object {
         print("Testing Service: ".concat(self.toString()))
         self.log("TEST MESSAGE")
+        return new Object
     }
 }
 
 class ConsoleLoggerService : LoggerService {
-    override func log(message: String) {
+    override func log(message: String) -> Object {
         print(message)
+        return new Object
     }
 }
 
 class FileLoggerService : LoggerService {
-    override func log(message: String) {
+    override func log(message: String) -> Object{
         var newFile = new File
         newFile.initWithPath("log.txt")
         newFile.append(message)
+        
+        return new Object
     }
 }
 
@@ -89,17 +97,26 @@ class Logger {
 """
 
 if __name__ == "__main__":
+    # Phase 1: Parsing
     result = parse(INPUT)
 
-    if not SemanticAnalyzer().analyze(result):
+    # Phase 2: Semantic Analysis
+    symbols = SemanticAnalyzer().analyze(result)
+    if symbols is None:
         sys.exit("Compilation failed due to semantic errors!")
+    func_symbols, class_symbols = symbols
 
+    # Phase 3: Lowering to IR
+    ir_funcs, ir_classes = IRLowerer().lower(func_symbols, class_symbols)
+    with open("ir.txt", "w") as f:
+        f.write(ir_to_str(ir_funcs, ir_classes))
+
+    # Phase 4: LLVM IR codegen
     with open("ir.ll", "w") as f:
-        f.write(LLVMIRGenerator(result).generate())
+        f.write(LLVMIRGenerator(ir_funcs, ir_classes).generate())
 
+    # Phase 5: Compile with clang
     res = subprocess.run(["clang", "-Wno-override-module", "-S", "ir.ll", "-o", "out.s"])
     #res = subprocess.run(["clang", "-Wno-override-module", "ir.ll", "../cmake-build-debug/libzrlang.a", "-o", "prog"])
     if res.returncode != 0:
         sys.exit("Error in IR")
-
-    # subprocess.run(["cc", "out.s", "-o", "prog"])

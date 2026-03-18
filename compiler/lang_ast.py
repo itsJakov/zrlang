@@ -31,17 +31,15 @@ class StringExpr(_Expression):
     value: str
 
 @dataclass
-class _SymbolRefExpr(_Expression):
-    symbol: 'Symbol' = field(init=False, default=None)
-
-@dataclass
-class SymbolExpr(_SymbolRefExpr):
+class SymbolExpr(_Expression):
     name: str
+    symbol: 'Symbol' = field(init=False, default=None)  # Resolved symbol reference
 
 @dataclass
-class MemberExpr(_SymbolRefExpr):
+class MemberExpr(_Expression):
     target: _Expression
     member: str
+    symbol: 'Symbol' = field(init=False, default=None)  # Resolved member symbol
 
 @dataclass
 class CallExpr(_Expression):
@@ -51,6 +49,8 @@ class CallExpr(_Expression):
 @dataclass
 class AllocExpr(_Expression):
     cls_name: str
+
+    cls: 'Class' = field(init=False, default=None) # Resolved class symbol
 
 class BinaryOperation(Enum):
     # Comparison
@@ -102,8 +102,10 @@ class ReturnStmt(_Statement):
 
 @dataclass
 class VarStmt(_Statement):
-    local: str
+    name: str
     expr: Optional[_Expression]
+
+    local: Optional['LocalSymbol'] = field(init=False, default=None) # Resolved local variable symbol
 
 @dataclass
 class ExprStmt(_Statement):
@@ -139,7 +141,6 @@ class ClassDecl(_TopLevelDecl):
     super: Optional[str]
     members: list[_ClassMember]
 
-    cls: 'Class' = field(init=False, default=None)
 
 # Method / Function
 class FuncDecorator(Enum):
@@ -151,7 +152,6 @@ class FuncParam(_Ast):
     name: str
     type_name: str
 
-    type: 'Type' = field(init=False, default=None)
 
 @dataclass
 class FuncDecl(_TopLevelDecl, _ClassMember):
@@ -161,7 +161,6 @@ class FuncDecl(_TopLevelDecl, _ClassMember):
     return_type_name: Optional[str]
     block: list[_Statement]
 
-    sym: 'FunctionSymbol' = field(init=False, default=None)
 
 
 class ToAst(Transformer):
