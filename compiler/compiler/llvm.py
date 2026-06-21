@@ -3,7 +3,7 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
     IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, \
-    IRStoreField, IRBinaryOp, IRBranch, IRRetain, IRRelease
+    IRStoreField, IRBinaryOp, IRBranch, IRRetain, IRRelease, IRStringLiteral
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 from lang_ast import BinaryOperation
@@ -245,6 +245,12 @@ class LLVMIRGenerator:
             elif isinstance(instr, IRAlloc):
                 self._emit(f"\t{self._reg(instr.destination)} = call ptr @zre_alloc(ptr @{instr.cls.name})")
 
+            elif isinstance(instr, IRStringLiteral):
+                self._emit(
+                    f"\t{self._reg(instr.destination)} = "
+                    f"call ptr @zre_string_literal(ptr {self._str_sym(instr.value)})"
+                )
+
     def _emit_call(self, call: _IRCall):
         args = [self._operand(arg) for arg in call.args]
 
@@ -347,8 +353,6 @@ class LLVMIRGenerator:
                 return "i1"
             case int(_):
                 return "i64"
-            case str(_):
-                return "ptr"
             case _:
                 fatal_error(f"Unknown operand type: {type(operand)}")
 
@@ -362,9 +366,5 @@ class LLVMIRGenerator:
                 return f"{1 if b else 0}"
             case int(i):
                 return f"{i}"
-            case str(s):
-                temp = self._temp_reg()
-                self._emit(f"\t{temp} = call ptr @zre_string_literal(ptr {self._str_sym(s)})")
-                return temp
             case _:
                 fatal_error(f"Unknown operand type: {type(operand)}")

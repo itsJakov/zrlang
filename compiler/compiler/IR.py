@@ -22,7 +22,7 @@ class IRSelf:
         return "%self"
 
 
-IROperand = Union[IRReg, IRSelf, bool, int, str]
+IROperand = Union[IRReg, IRSelf, bool, int]
 IRStorage = Union[LocalSymbol, ParameterSymbol]
 
 
@@ -180,6 +180,15 @@ class IRAlloc:
         return f"alloc {self.cls.name} -> {self.destination}"
 
 
+@dataclass
+class IRStringLiteral:
+    value: str
+    destination: IRReg
+
+    def __repr__(self):
+        return f"string_literal {self.value!r} -> {self.destination}"
+
+
 IRInstruction = Union[
     IRReturn,
     IRBinaryOp,
@@ -188,7 +197,7 @@ IRInstruction = Union[
     IRLoadField, IRStoreField,
     IRFuncCall, IRStaticCall, IRVirtualCall, IRSuperCall,
     IRRetain, IRRelease,
-    IRAlloc
+    IRAlloc, IRStringLiteral,
 ]
 
 
