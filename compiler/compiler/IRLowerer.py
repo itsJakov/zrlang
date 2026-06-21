@@ -39,15 +39,15 @@ def _is_object(op: IROperand) -> bool:
 #
 # Control-flow exits (return, and later break/continue) call
 # `emit_releases` on each scope up to the relevant boundary, then emit
-# the actual control-flow instruction, then mark the current scope
-# `terminated` so a subsequent pop doesn't re-emit those releases.
+# the actual control-flow instruction. _lower_block sees the terminator
+# via _lower_stmt's return value and skips its fall-through cleanup, so
+# nothing gets released twice.
 
 class _Scope:
     def __init__(self, lowerer: 'IRLowerer', parent: Optional['_Scope']):
         self._l = lowerer
         self.parent = parent
         self.body: list[IRInstruction] = []
-        self.terminated: bool = False
         self._locals: list[LocalSymbol] = []
 
     def bind_local(self, local: LocalSymbol) -> None:
@@ -112,18 +112,7 @@ class IRLowerer:
         ir_classes = [self._lower_class(cls) for cls in classes]
         return ir_funcs, ir_classes
 
-    # -- scope / emit primitives ---------------------------------------------
-
-    def _push_scope(self) -> _Scope:
-        self._scope = _Scope(self, parent=self._scope)
-        return self._scope
-
-    def _pop_scope(self) -> _Scope:
-        finished = self._scope
-        if not finished.terminated:
-            finished.emit_releases()
-        self._scope = finished.parent
-        return finished
+    # -- emit primitives -----------------------------------------------------
 
     def _emit(self, i: IRInstruction) -> None:
         self._scope.body.append(i)
@@ -134,7 +123,6 @@ class IRLowerer:
             scope.emit_releases()
             scope = scope.parent
         self._emit(IRReturn(value))
-        self._scope.terminated = True
 
     def _own(self, op: Optional[IROperand]) -> _Value:
         """Wrap a freshly produced +1 operand (e.g. a call result or alloc)."""
@@ -157,25 +145,39 @@ class IRLowerer:
     def _lower_function(self, func: FunctionSymbol) -> IRFunction | IRMethod:
         ir_func = IRFunction(func)
         self._function = _FunctionCtx(ir_func)
-
-        scope = self._push_scope()
-        if not self._lower_block(func.node.block):
-            self._emit_return(value=None)
-        ir_func.body = scope.body
-        self._pop_scope()
-
+        body, terminated = self._lower_block(func.node.block)
+        if not terminated:
+            body.append(IRReturn(None)) # Not emit_release because an unterminated block cleaned itself up
+        ir_func.body = body
         self._function = None
         return ir_func
 
     # -- statements ----------------------------------------------------------
 
-    def _lower_block(self, stmts: list[_Statement]) -> bool:
-        """Lower a list of statements. Returns True if the block always exits
-        via a control-flow terminator (currently only `return`)."""
+    def _lower_block(self, stmts: list[_Statement]) -> tuple[list[IRInstruction], bool]:
+        """Lower a list of statements into a fresh IR block under a new scope.
+
+        On fall-through, emits releases for the scope's locals. If a
+        statement terminates control flow (currently only `return`), stops
+        early — the terminator already walked the scope chain and cleaned up.
+
+        Returns (body, terminated). The caller decides what, if anything,
+        to append to the body when not terminated (implicit return, loop
+        back-jump, etc).
+        """
+        self._scope = _Scope(self, parent=self._scope)
+        terminated = False
         for stmt in stmts:
             if self._lower_stmt(stmt):
-                return True
-        return False
+                terminated = True
+                break
+
+        if not terminated:
+            self._scope.emit_releases()
+
+        block = self._scope
+        self._scope = block.parent
+        return block.body, terminated
 
     def _lower_stmt(self, stmt: _Statement) -> bool:
         if isinstance(stmt, ReturnStmt):
@@ -185,7 +187,7 @@ class IRLowerer:
 
         if isinstance(stmt, VarStmt):
             self._function.func.locals.append(stmt.local)
-            new_op = self._lower_expr(stmt.expr).take() # stmt.expr could be None!
+            new_op = self._lower_expr(stmt.expr).take() # TODO: stmt.expr could be None!
             self._emit(IRStore(destination=stmt.local, value=new_op))
             self._scope.bind_local(stmt.local)
             return False
@@ -196,20 +198,14 @@ class IRLowerer:
 
         if isinstance(stmt, IfStmt):
             cond = self._lower_expr(stmt.condition)
-
-            self._push_scope()
-            self._lower_block(stmt.block)
-            true_block = self._pop_scope().body
+            true_block, _ = self._lower_block(stmt.block)
 
             false_block: Optional[list[IRInstruction]] = None
             if stmt.else_block:
-                self._push_scope()
-                self._lower_block(stmt.else_block)
-                false_block = self._pop_scope().body
+                false_block, _ = self._lower_block(stmt.else_block)
 
             self._emit(IRBranch(condition=cond.use(), true_block=true_block, false_block=false_block))
-            cond.discard() # Probably a no op because it comes after a branch instruction.
-            # Should be fine because cond has to be a primitive (boolean) so there's nothing to release anyway
+            cond.discard() # No-op in practice: cond is a primitive (bool).
             return False
 
         if isinstance(stmt, ExprStmt):
