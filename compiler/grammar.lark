@@ -13,12 +13,15 @@ func_return: "->" CNAME
 decorator_list: CNAME*
 
 block: "{" statement* "}"
-?statement: return_stmt | var_stmt | expr_stmt | assign_stmt | if_stmt
+?statement: return_stmt | var_stmt | expr_stmt | assign_stmt | if_stmt | loop_stmt | break_stmt | continue_stmt
 return_stmt: "return" [expr] _END
 var_stmt: "var" CNAME ["=" expr] _END
 expr_stmt: expr _END
 assign_stmt: lvalue "=" expr _END
 if_stmt: "if" expr block ["else" block]
+loop_stmt: "loop" block
+break_stmt: "break" _END
+continue_stmt: "continue" _END
 
 // Expressions (lowest to highest precedence)
 ?expr: logical_or

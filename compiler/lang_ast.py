@@ -122,6 +122,18 @@ class IfStmt(_Statement):
     block: list[_Statement]
     else_block: Optional[list[_Statement]]
 
+@dataclass
+class LoopStmt(_Statement):
+    block: list[_Statement]
+
+@dataclass
+class BreakStmt(_Statement):
+    pass
+
+@dataclass
+class ContinueStmt(_Statement):
+    pass
+
 # Top Level
 class _TopLevelDecl(_Ast):
     pass
