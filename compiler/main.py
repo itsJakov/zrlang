@@ -8,6 +8,25 @@ from compiler import SemanticAnalyzer, LLVMIRGenerator
 
 INPUT = """
 func main() -> Int {
+    var global = new Array
+
+    loop {
+        var a = new Object
+        
+        if true {
+            loop {
+                return 69
+            }
+        }
+        
+        print("Iteration")
+        break
+        break
+        break
+    }
+
+    return 25
+
     var logger = Logger.new()
     
     print("=== Logging with message level over threshold ===")

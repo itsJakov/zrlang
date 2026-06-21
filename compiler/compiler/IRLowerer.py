@@ -3,11 +3,11 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
     IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, IRBinaryOp, \
-    IRBranch, IRRelease, IRRetain, IRStringLiteral
+    IRBranch, IRRelease, IRRetain, IRStringLiteral, IRLoop, IRBreak, IRContinue
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type, ObjectType
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
-    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt
+    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt, LoopStmt, BreakStmt, ContinueStmt
 
 
 def fatal_error(msg: str) -> NoReturn:
@@ -44,9 +44,10 @@ def _is_object(op: IROperand) -> bool:
 # nothing gets released twice.
 
 class _Scope:
-    def __init__(self, lowerer: 'IRLowerer', parent: Optional['_Scope']):
+    def __init__(self, lowerer: 'IRLowerer', parent: Optional['_Scope'], is_loop: bool):
         self._l = lowerer
         self.parent = parent
+        self.is_loop = is_loop
         self.body: list[IRInstruction] = []
         self._locals: list[LocalSymbol] = []
 
@@ -122,7 +123,21 @@ class IRLowerer:
         while scope is not None:
             scope.emit_releases()
             scope = scope.parent
+
         self._emit(IRReturn(value))
+
+    def _emit_loop_exit(self, terminator: IRContinue | IRBreak) -> None:
+        """Walk scopes up to the innermost loop, releasing along the way,
+        then emit a loop terminator (break or continue)."""
+        scope = self._scope
+        while scope is not None:
+            scope.emit_releases()
+            if scope.is_loop:
+                self._emit(terminator)
+                return
+            scope = scope.parent
+
+        fatal_error("Loop exit outside of a loop")
 
     def _own(self, op: Optional[IROperand]) -> _Value:
         """Wrap a freshly produced +1 operand (e.g. a call result or alloc)."""
@@ -154,18 +169,21 @@ class IRLowerer:
 
     # -- statements ----------------------------------------------------------
 
-    def _lower_block(self, stmts: list[_Statement]) -> tuple[list[IRInstruction], bool]:
+    def _lower_block(self, stmts: list[_Statement], is_loop: bool = False) -> tuple[list[IRInstruction], bool]:
         """Lower a list of statements into a fresh IR block under a new scope.
 
         On fall-through, emits releases for the scope's locals. If a
-        statement terminates control flow (currently only `return`), stops
-        early — the terminator already walked the scope chain and cleaned up.
+        statement terminates control flow (return, break), stops early —
+        the terminator already walked the scope chain and cleaned up.
+
+        `is_loop=True` marks the new scope as a loop boundary, so `break`
+        knows where to stop walking when emitting its releases.
 
         Returns (body, terminated). The caller decides what, if anything,
         to append to the body when not terminated (implicit return, loop
         back-jump, etc).
         """
-        self._scope = _Scope(self, parent=self._scope)
+        self._scope = _Scope(self, parent=self._scope, is_loop=is_loop)
         terminated = False
         for stmt in stmts:
             if self._lower_stmt(stmt):
@@ -207,6 +225,19 @@ class IRLowerer:
             self._emit(IRBranch(condition=cond.use(), true_block=true_block, false_block=false_block))
             cond.discard() # No-op in practice: cond is a primitive (bool).
             return False
+
+        if isinstance(stmt, LoopStmt):
+            body, _ = self._lower_block(stmt.block, is_loop=True)
+            self._emit(IRLoop(body))
+            return False
+
+        if isinstance(stmt, BreakStmt):
+            self._emit_loop_exit(IRBreak())
+            return True
+
+        if isinstance(stmt, ContinueStmt):
+            self._emit_loop_exit(IRContinue())
+            return True
 
         if isinstance(stmt, ExprStmt):
             self._lower_expr(stmt.expr).discard()
