@@ -62,18 +62,45 @@ class IRBranch:
         if self.true_block:
             lines.append(f"{tab}[then]")
             for sub in self.true_block:
-                if isinstance(sub, IRBranch):
-                    lines.append(sub._repr_with_indent(indent + 1))
-                else:
-                    lines.append("\t" * (indent + 1) + str(sub))
+                lines.append(_nested_instr_repr(sub, indent + 1))
         if self.false_block:
             lines.append(f"{tab}[else]")
             for sub in self.false_block:
-                if isinstance(sub, IRBranch):
-                    lines.append(sub._repr_with_indent(indent + 1))
-                else:
-                    lines.append("\t" * (indent + 1) + str(sub))
+                lines.append(_nested_instr_repr(sub, indent + 1))
         return "\n".join(lines)
+
+
+@dataclass
+class IRLoop:
+    body: list['IRInstruction']
+
+    def __repr__(self):
+        return self._repr_with_indent(0)
+
+    def _repr_with_indent(self, indent: int) -> str:
+        tab = "\t" * indent
+        lines = [f"{tab}loop ({len(self.body)} instructions)"]
+        for sub in self.body:
+            lines.append(_nested_instr_repr(sub, indent + 1))
+        return "\n".join(lines)
+
+
+@dataclass
+class IRBreak:
+    def __repr__(self):
+        return "break"
+
+
+@dataclass
+class IRContinue:
+    def __repr__(self):
+        return "continue"
+
+
+def _nested_instr_repr(instr: 'IRInstruction', indent: int) -> str:
+    if isinstance(instr, (IRBranch, IRLoop)):
+        return instr._repr_with_indent(indent)
+    return "\t" * indent + str(instr)
 
 
 @dataclass
@@ -193,6 +220,7 @@ IRInstruction = Union[
     IRReturn,
     IRBinaryOp,
     IRBranch,
+    IRLoop, IRBreak, IRContinue,
     IRLoad, IRStore,
     IRLoadField, IRStoreField,
     IRFuncCall, IRStaticCall, IRVirtualCall, IRSuperCall,
@@ -220,7 +248,7 @@ class IRClass:
 
 
 def instr_to_str(instr: 'IRInstruction', indent: int) -> str:
-    if isinstance(instr, IRBranch):
+    if isinstance(instr, (IRBranch, IRLoop)):
         return instr._repr_with_indent(indent)
     tab = "\t" * indent
     return f"{tab}{instr}"
