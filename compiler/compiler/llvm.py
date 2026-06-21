@@ -3,7 +3,7 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
     IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, \
-    IRStoreField, IRBinaryOp, IRBranch, IRRetain, IRRelease, IRStringLiteral
+    IRStoreField, IRBinaryOp, IRBranch, IRRetain, IRRelease, IRStringLiteral, IRLoop, IRBreak, IRContinue
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 from lang_ast import BinaryOperation
@@ -21,6 +21,8 @@ class LLVMIRGenerator:
         self._strings: list[str] = []
         self._temp_idx: int = 0
         self._if_idx: int = -1
+        self._loop_idx: int = -1
+        self._loop_idx_current: int = -1
 
         self._declarations = [
             "declare ptr @zre_alloc(ptr)",
@@ -187,6 +189,19 @@ class LLVMIRGenerator:
             elif isinstance(instr, IRBranch):
                 self._emit_branch(instr)
 
+            elif isinstance(instr, IRLoop):
+                self._emit_loop(instr)
+
+            elif isinstance(instr, IRBreak):
+                if self._loop_idx_current < 0:
+                    fatal_error("'break' outside of a loop")
+                self._emit(f"\tbr label %loop.end.{self._loop_idx_current}")
+
+            elif isinstance(instr, IRContinue):
+                if self._loop_idx_current < 0:
+                    fatal_error("'continue' outside of a loop")
+                self._emit(f"\tbr label %loop.start.{self._loop_idx_current}")
+
             elif isinstance(instr, IRStore):
                 self._emit(f"\tstore {self._operand(instr.value)}, ptr {self._storage_reg(instr.destination)}")
 
@@ -288,6 +303,23 @@ class LLVMIRGenerator:
             self._emit(f"\t{self._reg(call.destination)} = call {ir}({", ".join(args)})")
         else:
             self._emit(f"\tcall {ir}({", ".join(args)})")
+
+    def _emit_loop(self, loop: IRLoop):
+        parent_loop = self._loop_idx_current
+        self._loop_idx += 1
+        self._loop_idx_current = self._loop_idx
+
+        start_label = f"loop.start.{self._loop_idx}"
+        end_label = f"loop.end.{self._loop_idx}"
+
+        self._emit(f"\tbr label %{start_label}")
+        self._emit(f"{start_label}:")
+        self._emit_block(loop.body)
+
+        self._emit(f"\tbr label %{start_label}")
+        self._emit(f"{end_label}:")
+
+        self._loop_idx_current = parent_loop
 
     def _emit_branch(self, branch: IRBranch):
         self._if_idx += 1
