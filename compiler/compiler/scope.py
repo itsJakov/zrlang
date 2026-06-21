@@ -9,6 +9,7 @@ class Scope:
         self.parent: Optional[Scope] = parent
         self.symbols: dict[str, Symbol] = {}
         self.return_type: Optional[Type] = None
+        self.in_loop: bool = False
 
     # Returns False if symbol already exists in this scope
     def define(self, symbol: Symbol) -> bool:

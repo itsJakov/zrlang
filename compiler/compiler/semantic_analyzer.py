@@ -5,7 +5,8 @@ from lang_ast import (
     ClassDecl, ClassField, FuncDecl, _Expression, IntExpr, StringExpr,
     SymbolExpr, MemberExpr, CallExpr, BinaryExpr, BinaryOperation,
     _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr,
-    _Ast, ReturnStmt, BoolExpr, _TopLevelDecl, FuncDecorator
+    _Ast, ReturnStmt, BoolExpr, _TopLevelDecl, FuncDecorator,
+    LoopStmt, BreakStmt, ContinueStmt
 )
 from .types import (
     Type, VoidType, BoolType, IntType, ObjectType, FunctionType,
@@ -48,8 +49,8 @@ class SemanticAnalyzer:
 
     def _push_scope(self) -> Scope:
         new_scope = Scope(parent=self.scope)
-        # TODO: Probably should find a better way to handle return/break/continue scopes
         new_scope.return_type = self.scope.return_type
+        new_scope.in_loop = self.scope.in_loop
         self.scope = new_scope
         return new_scope
 
@@ -311,6 +312,20 @@ class SemanticAnalyzer:
             self._analyze_block(stmt.block)
             if stmt.else_block is not None:
                 self._analyze_block(stmt.else_block)
+
+        elif isinstance(stmt, LoopStmt):
+            self._push_scope()
+            self.scope.in_loop = True
+            self._analyze_block(stmt.block)
+            self._pop_scope()
+
+        elif isinstance(stmt, BreakStmt):
+            if not self.scope.in_loop:
+                self._error("'break' outside of a loop", stmt)
+
+        elif isinstance(stmt, ContinueStmt):
+            if not self.scope.in_loop:
+                self._error("'continue' outside of a loop", stmt)
 
     def _analyze_expression(self, expr: _Expression, allow_class_type: bool = False) -> Optional[Type]:
         # allow_class_type is used for static member, because usually it's not a valid type
