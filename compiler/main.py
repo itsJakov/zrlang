@@ -8,25 +8,6 @@ from compiler import SemanticAnalyzer, LLVMIRGenerator
 
 INPUT = """
 func main() -> Int {
-    var global = new Array
-
-    loop {
-        var a = new Object
-        
-        if true {
-            loop {
-                return 69
-            }
-        }
-        
-        print("Iteration")
-        break
-        break
-        break
-    }
-
-    return 25
-
     var logger = Logger.new()
     
     print("=== Logging with message level over threshold ===")
@@ -135,7 +116,7 @@ if __name__ == "__main__":
         f.write(LLVMIRGenerator(ir_funcs, ir_classes).generate())
 
     # Phase 5: Compile with clang
-    res = subprocess.run(["clang", "-Wno-override-module", "-S", "ir.ll", "-o", "out.s"])
-    #res = subprocess.run(["clang", "-Wno-override-module", "ir.ll", "../cmake-build-debug/libzrlang.a", "-o", "prog"])
+    #res = subprocess.run(["clang", "-Wno-override-module", "-S", "ir.ll", "-o", "out.s"])
+    res = subprocess.run(["clang", "-Wno-override-module", "ir.ll", "../cmake-build-debug/libzrlang.a", "-o", "prog"])
     if res.returncode != 0:
         sys.exit("Error in IR")

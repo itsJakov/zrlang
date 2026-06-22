@@ -219,28 +219,33 @@ class IRLowerer:
         if not isinstance(stmt.assignee, (SymbolExpr, MemberExpr)):
             fatal_error(f"Not an assignable expr {type(stmt.assignee)}")
 
-        assignee = stmt.assignee.symbol
-        value = self._lower_expr(stmt.value)
+        symbol = stmt.assignee.symbol
+        value = self._lower_expr(stmt.value).take()
 
-        if isinstance(assignee, (LocalSymbol, ParameterSymbol)):
-            new_op = value.take()
-            if isinstance(assignee, LocalSymbol):
+        if isinstance(symbol, (LocalSymbol, ParameterSymbol)):
+            if isinstance(symbol, LocalSymbol):
                 # Skip release for ParameterSymbol, the old value is the caller's.
                 # TODO: [BUG] ParameterSymbol will leak
-                self._release_storage(assignee)
-            self._emit(IRStore(destination=assignee, value=new_op))
+                self._release_storage(symbol)
+            self._emit(IRStore(destination=symbol, value=value))
             return
 
-        if isinstance(assignee, FieldSymbol):
+        if isinstance(symbol, FieldSymbol):
             if not isinstance(stmt.assignee, MemberExpr):
                 fatal_error("FieldSymbol assignee must be a MemberExpr")
             instance = self._lower_expr(stmt.assignee.target)
-            new_op = value.take()
-            self._emit(IRStoreField(value=new_op, target=instance.use(), field=assignee))
+
+            # Release old field value
+            if isinstance(symbol.type, ObjectType):
+                tmp = self._function.temp_reg(symbol.type)
+                self._emit(IRLoadField(target=instance.use(), field=symbol, destination=tmp))
+                self._emit(IRRelease(tmp))
+
+            self._emit(IRStoreField(value=value, target=instance.use(), field=symbol))
             instance.discard()
             return
 
-        fatal_error(f"Cannot assign to symbol of type {type(assignee)}")
+        fatal_error(f"Cannot assign to symbol of type {type(symbol)}")
 
     def _release_storage(self, storage: LocalSymbol | ParameterSymbol) -> None:
         if not isinstance(storage.type, ObjectType):
