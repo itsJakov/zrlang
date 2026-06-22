@@ -18,74 +18,53 @@ def _is_object(op: IROperand) -> bool:
     return isinstance(op, IRReg) and isinstance(op.type, ObjectType)
 
 
-# ---------------------------------------------------------------------------
-# ARC primitives
-# ---------------------------------------------------------------------------
-#
-# Two ideas carry the ARC story for the whole file:
-#
-#   _Scope    A lifetime region for locals. Releases its bound locals when
-#             control flow exits the region. Scopes nest via `parent` and
-#             form a stack matching the source-language block structure.
-#             Each block — function body, if branch, (future) loop body —
-#             pushes its own scope.
-#
-#   _Value    The result of lowering an expression. Either *borrowed*
-#             (no cleanup obligation) or *owned* (a +1 reference, e.g. a
-#             call result or an alloc). Consumers pick `take` / `discard`
-#             / `use` to express intent; the right retain/release falls
-#             out automatically. Every produced _Value is consumed at the
-#             same statement level — there's no scope-level safety net.
-#
-# Control-flow exits (return, and later break/continue) call
-# `emit_releases` on each scope up to the relevant boundary, then emit
-# the actual control-flow instruction. _lower_block sees the terminator
-# via _lower_stmt's return value and skips its fall-through cleanup, so
-# nothing gets released twice.
-
 class _Scope:
     def __init__(self, lowerer: 'IRLowerer', parent: Optional['_Scope'], is_loop: bool):
-        self._l = lowerer
+        self._lowerer = lowerer
         self.parent = parent
         self.is_loop = is_loop
         self.body: list[IRInstruction] = []
-        self._locals: list[LocalSymbol] = []
+        self._live_locals: list[LocalSymbol] = []
 
     def bind_local(self, local: LocalSymbol) -> None:
-        if local not in self._locals:
-            self._locals.append(local)
+        if local not in self._live_locals:
+            self._live_locals.append(local)
 
     def emit_releases(self) -> None:
-        for local in reversed(self._locals):
+        for local in reversed(self._live_locals):
             if not isinstance(local.type, ObjectType):
                 continue
-            tmp = self._l._function.temp_reg(local.type)
-            self._l._emit(IRLoad(source=local, destination=tmp))
-            self._l._emit(IRRelease(tmp))
+
+            tmp = self._lowerer._function.temp_reg(local.type)
+            self._lowerer._emit(IRLoad(source=local, destination=tmp))
+            self._lowerer._emit(IRRelease(tmp))
 
 
 class _Value:
-    def __init__(self, lowerer: 'IRLowerer', op: IROperand, owned: bool):
-        self._l = lowerer
-        self.op = op
+    """Wrapper for an IROperand with ownership management."""
+
+    def __init__(self, lowerer: 'IRLowerer', operand: IROperand, owned: bool):
+        self._lowerer = lowerer
+        self.operand = operand
         self.owned = owned
 
     def take(self) -> IROperand:
-        """Claim ownership. Retains if borrowed; transfers if already owned."""
-        if not self.owned and _is_object(self.op):
-            self._l._emit(IRRetain(self.op))
+        """Claim ownership. Retains if borrowed, transfers if already owned."""
+        if not self.owned and _is_object(self.operand):
+            self._lowerer._emit(IRRetain(self.operand))
+
         self.owned = False
-        return self.op
+        return self.operand
 
     def discard(self) -> None:
-        """Release immediately if owned; no-op if borrowed."""
-        if self.owned and _is_object(self.op):
-            self._l._emit(IRRelease(self.op))
+        """Release immediately if owned, no-op if borrowed."""
+        if self.owned and _is_object(self.operand):
+            self._lowerer._emit(IRRelease(self.operand))
+
         self.owned = False
 
     def use(self) -> IROperand:
-        """Read-only borrow. Ownership unchanged."""
-        return self.op
+        return self.operand
 
 
 class _FunctionCtx:
@@ -98,10 +77,6 @@ class _FunctionCtx:
         return IRReg(idx=self._temp_idx, type=t)
 
 
-# ---------------------------------------------------------------------------
-# Lowerer
-# ---------------------------------------------------------------------------
-
 class IRLowerer:
     def __init__(self):
         self._scope: Optional[_Scope] = None
@@ -113,13 +88,14 @@ class IRLowerer:
         ir_classes = [self._lower_class(cls) for cls in classes]
         return ir_funcs, ir_classes
 
-    # -- emit primitives -----------------------------------------------------
+    # -- Utilities
 
     def _emit(self, i: IRInstruction) -> None:
         self._scope.body.append(i)
 
     def _emit_return(self, value: Optional[IROperand]) -> None:
         scope = self._scope
+        # Recursively emit releases for scopes all scopes in order
         while scope is not None:
             scope.emit_releases()
             scope = scope.parent
@@ -127,26 +103,24 @@ class IRLowerer:
         self._emit(IRReturn(value))
 
     def _emit_loop_exit(self, terminator: IRContinue | IRBreak) -> None:
-        """Walk scopes up to the innermost loop, releasing along the way,
-        then emit a loop terminator (break or continue)."""
+        # Recursively emit releases for scopes until the first loop scope is reached
         scope = self._scope
         while scope is not None:
             scope.emit_releases()
             if scope.is_loop:
                 self._emit(terminator)
-                return
+                return # Stop at the first loop scope
             scope = scope.parent
 
         fatal_error("Loop exit outside of a loop")
 
-    def _own(self, op: Optional[IROperand]) -> _Value:
-        """Wrap a freshly produced +1 operand (e.g. a call result or alloc)."""
+    def _owned(self, op: Optional[IROperand]) -> _Value:
         return _Value(self, op, owned=op is not None and _is_object(op))
 
-    def _borrow(self, op: IROperand) -> _Value:
+    def _borrowed(self, op: IROperand) -> _Value:
         return _Value(self, op, owned=False)
 
-    # -- top-level lowering --------------------------------------------------
+    # -- Top-level lowering
 
     def _lower_class(self, cls: Class) -> IRClass:
         self._current_cls = cls
@@ -167,21 +141,17 @@ class IRLowerer:
         self._function = None
         return ir_func
 
-    # -- statements ----------------------------------------------------------
+    # -- Statements
 
     def _lower_block(self, stmts: list[_Statement], is_loop: bool = False) -> tuple[list[IRInstruction], bool]:
-        """Lower a list of statements into a fresh IR block under a new scope.
+        """Lower a list of statements into an IR block under a new scope.
 
-        On fall-through, emits releases for the scope's locals. If a
-        statement terminates control flow (return, break), stops early —
-        the terminator already walked the scope chain and cleaned up.
-
-        `is_loop=True` marks the new scope as a loop boundary, so `break`
-        knows where to stop walking when emitting its releases.
+        Only fall-through, releases are emitted for the scope's locals.
+        If a statement terminates control flow (return, break, continue),
+        the terminator already cleaned the scope.
 
         Returns (body, terminated). The caller decides what, if anything,
-        to append to the body when not terminated (implicit return, loop
-        back-jump, etc).
+        to append to the body when not terminated (implicit return, loop jump, etc).
         """
         self._scope = _Scope(self, parent=self._scope, is_loop=is_loop)
         terminated = False
@@ -255,9 +225,8 @@ class IRLowerer:
         if isinstance(assignee, (LocalSymbol, ParameterSymbol)):
             new_op = value.take()
             if isinstance(assignee, LocalSymbol):
-                # Release the old value before overwriting (the local is
-                # guaranteed to have a current value via prior VarStmt).
-                # Skipped for ParameterSymbol: the old value is the caller's.
+                # Skip release for ParameterSymbol, the old value is the caller's.
+                # TODO: [BUG] ParameterSymbol will leak
                 self._release_storage(assignee)
             self._emit(IRStore(destination=assignee, value=new_op))
             return
@@ -267,9 +236,6 @@ class IRLowerer:
                 fatal_error("FieldSymbol assignee must be a MemberExpr")
             instance = self._lower_expr(stmt.assignee.target)
             new_op = value.take()
-            # NOTE: not releasing the field's old value — would crash on
-            # first assignment in a constructor (field is uninitialized).
-            # Revisit once the runtime supports a null-safe release.
             self._emit(IRStoreField(value=new_op, target=instance.use(), field=assignee))
             instance.discard()
             return
@@ -283,32 +249,30 @@ class IRLowerer:
         self._emit(IRLoad(source=storage, destination=tmp))
         self._emit(IRRelease(tmp))
 
-    # -- expressions ---------------------------------------------------------
+    # -- Expressions
 
     def _lower_expr(self, expr: _Expression) -> _Value:
         if isinstance(expr, BoolExpr):
-            return self._borrow(expr.value)
+            return self._borrowed(expr.value)
         if isinstance(expr, IntExpr):
-            return self._borrow(expr.value)
+            return self._borrowed(expr.value)
         if isinstance(expr, StringExpr):
-            # String literals materialize at runtime via zre_string_literal,
-            # which allocates a fresh String instance with refcount 1.
-            # Treat them like an alloc: own the +1 and let ARC handle it.
             dest = self._function.temp_reg(expr.type)
             self._emit(IRStringLiteral(value=expr.value, destination=dest))
-            return self._own(dest)
+            return self._owned(dest)
         if isinstance(expr, SymbolExpr):
             return self._lower_symbol_expr(expr)
         if isinstance(expr, MemberExpr):
             return self._lower_member_expr(expr)
         if isinstance(expr, CallExpr):
-            return self._own(self._lower_call_expr(expr))
+            # Functions MUST return owned (+1) values
+            return self._owned(self._lower_call_expr(expr))
         if isinstance(expr, BinaryExpr):
             return self._lower_binary_expr(expr)
         if isinstance(expr, AllocExpr):
             dest = self._function.temp_reg(expr.type)
             self._emit(IRAlloc(cls=expr.cls, destination=dest))
-            return self._own(dest)
+            return self._owned(dest)
 
         fatal_error(f"Expression '{expr}' is unknown")
 
@@ -317,10 +281,10 @@ class IRLowerer:
         if not isinstance(symbol, (ParameterSymbol, LocalSymbol)):
             fatal_error("Symbol expressions have to resolve to parameter or local symbols")
         if expr.name == "self":
-            return self._borrow(IRSelf())
+            return self._borrowed(IRSelf())
         dest = self._function.temp_reg(expr.type)
         self._emit(IRLoad(source=symbol, destination=dest))
-        return self._borrow(dest)
+        return self._borrowed(dest)
 
     def _lower_member_expr(self, expr: MemberExpr) -> _Value:
         if not isinstance(expr.symbol, FieldSymbol):
@@ -329,7 +293,7 @@ class IRLowerer:
         dest = self._function.temp_reg(expr.type)
         self._emit(IRLoadField(target=target.use(), field=expr.symbol, destination=dest))
         target.discard()
-        return self._borrow(dest)
+        return self._borrowed(dest)
 
     def _lower_binary_expr(self, expr: BinaryExpr) -> _Value:
         lhs = self._lower_expr(expr.lhs)
@@ -338,7 +302,7 @@ class IRLowerer:
         self._emit(IRBinaryOp(op=expr.op, lhs=lhs.use(), rhs=rhs.use(), destination=dest))
         lhs.discard()
         rhs.discard()
-        return self._borrow(dest)  # binary ops produce primitives only (for now)
+        return self._borrowed(dest)  # Binary ops produce primitives only (for now)
 
     def _lower_call_expr(self, call: CallExpr) -> Optional[IRReg]:
         args = [self._lower_expr(arg) for arg in call.args]
