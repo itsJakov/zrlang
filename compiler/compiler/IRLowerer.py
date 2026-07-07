@@ -3,9 +3,9 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
     IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, IRBinaryOp, \
-    IRBranch, IRRelease, IRRetain, IRStringLiteral, IRLoop, IRBreak, IRContinue, IRCheckCast
+    IRBranch, IRRelease, IRRetain, IRStringLiteral, IRLoop, IRBreak, IRContinue, IRCheckCast, IRNull
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
-from compiler.types import VoidType, Type, ObjectType
+from compiler.types import VoidType, Type, ObjectType, IntType, BoolType
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
     MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt, LoopStmt, BreakStmt, ContinueStmt, AsExpr
 
@@ -174,9 +174,21 @@ class IRLowerer:
             return True
 
         if isinstance(stmt, VarStmt):
+            value: IROperand = 0
+            if stmt.expr:
+                value = self._lower_expr(stmt.expr).take()
+            else:
+                if isinstance(stmt.local.type, BoolType):
+                    value = False
+                elif isinstance(stmt.local.type, IntType):
+                    value = 0
+                elif isinstance(stmt.local.type, ObjectType):
+                    value = IRNull()
+                else:
+                    fatal_error(f"No default value for type {stmt.type}")
+
             self._function.func.locals.append(stmt.local)
-            new_op = self._lower_expr(stmt.expr).take() # TODO: stmt.expr could be None!
-            self._emit(IRStore(destination=stmt.local, value=new_op))
+            self._emit(IRStore(destination=stmt.local, value=value))
             self._scope.bind_local(stmt.local)
             return False
 
