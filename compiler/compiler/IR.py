@@ -22,7 +22,13 @@ class IRSelf:
         return "%self"
 
 
-IROperand = Union[IRReg, IRSelf, bool, int]
+@dataclass
+class IRNull:
+    def __repr__(self):
+        return "null"
+
+
+IROperand = Union[IRReg, IRSelf, IRNull, bool, int]
 IRStorage = Union[LocalSymbol, ParameterSymbol]
 
 

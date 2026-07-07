@@ -3,7 +3,8 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
     IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, \
-    IRStoreField, IRBinaryOp, IRBranch, IRRetain, IRRelease, IRStringLiteral, IRLoop, IRBreak, IRContinue, IRCheckCast
+    IRStoreField, IRBinaryOp, IRBranch, IRRetain, IRRelease, IRStringLiteral, IRLoop, IRBreak, IRContinue, IRCheckCast, \
+    IRNull
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
 from lang_ast import BinaryOperation
@@ -385,6 +386,8 @@ class LLVMIRGenerator:
                 return self._type_to_ir(r.type)
             case IRSelf():
                 return "ptr"
+            case IRNull():
+                return "ptr"
             case bool(_):
                 return "i1"
             case int(_):
@@ -398,6 +401,8 @@ class LLVMIRGenerator:
                 return f"%.{idx}"
             case IRSelf():
                 return "%self"
+            case IRNull():
+                return "null"
             case bool(b):
                 return f"{1 if b else 0}"
             case int(i):
