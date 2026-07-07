@@ -3,11 +3,11 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
     IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, IRBinaryOp, \
-    IRBranch, IRRelease, IRRetain, IRStringLiteral, IRLoop, IRBreak, IRContinue
+    IRBranch, IRRelease, IRRetain, IRStringLiteral, IRLoop, IRBreak, IRContinue, IRCheckCast
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type, ObjectType
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
-    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt, LoopStmt, BreakStmt, ContinueStmt
+    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt, LoopStmt, BreakStmt, ContinueStmt, AsExpr
 
 
 def fatal_error(msg: str) -> NoReturn:
@@ -274,6 +274,8 @@ class IRLowerer:
             return self._owned(self._lower_call_expr(expr))
         if isinstance(expr, BinaryExpr):
             return self._lower_binary_expr(expr)
+        if isinstance(expr, AsExpr):
+            return self._lower_as_expr(expr)
         if isinstance(expr, AllocExpr):
             dest = self._function.temp_reg(expr.type)
             self._emit(IRAlloc(cls=expr.cls, destination=dest))
@@ -308,6 +310,11 @@ class IRLowerer:
         lhs.discard()
         rhs.discard()
         return self._borrowed(dest)  # Binary ops produce primitives only (for now)
+
+    def _lower_as_expr(self, expr: AsExpr) -> _Value:
+        value = self._lower_expr(expr.value)
+        self._emit(IRCheckCast(value.use(), expr.target_cls))
+        return value
 
     def _lower_call_expr(self, call: CallExpr) -> Optional[IRReg]:
         args = [self._lower_expr(arg) for arg in call.args]

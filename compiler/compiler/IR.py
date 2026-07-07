@@ -190,6 +190,15 @@ class IRStringLiteral:
         return f'{_fmt(self.destination)} = "{self.value}"'
 
 
+@dataclass
+class IRCheckCast:
+    obj: IRReg
+    cls: Class
+
+    def __repr__(self):
+        return f"check_cast {_fmt(self.obj)}"
+
+
 IRInstruction = Union[
     IRReturn,
     IRBinaryOp,
@@ -200,6 +209,7 @@ IRInstruction = Union[
     IRFuncCall, IRStaticCall, IRVirtualCall, IRSuperCall,
     IRRetain, IRRelease,
     IRAlloc, IRStringLiteral,
+    IRCheckCast,
 ]
 
 
