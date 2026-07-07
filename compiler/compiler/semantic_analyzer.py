@@ -6,11 +6,11 @@ from lang_ast import (
     SymbolExpr, MemberExpr, CallExpr, BinaryExpr, BinaryOperation,
     _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr,
     _Ast, ReturnStmt, BoolExpr, _TopLevelDecl, FuncDecorator,
-    LoopStmt, BreakStmt, ContinueStmt, AsExpr
+    LoopStmt, BreakStmt, ContinueStmt, AsExpr, NullExpr
 )
 from .types import (
     Type, VoidType, BoolType, IntType, ObjectType, FunctionType,
-    is_assignable_to, ClassType
+    is_assignable_to, ClassType, NullType
 )
 from .symbols import (
     LocalSymbol, FieldSymbol, ParameterSymbol,
@@ -287,6 +287,10 @@ class SemanticAnalyzer:
 
             # TODO: Disallow locals with void type
 
+            if not expected_type and isinstance(value_type, NullType):
+                self._error("Cannot infer variable type from 'null'", stmt)
+                return
+
             # If both type and initial value are set, make sure they're compatible
             if expected_type and value_type and not is_assignable_to(value_type, expected_type):
                 self._error(
@@ -360,6 +364,9 @@ class SemanticAnalyzer:
 
         if isinstance(expr, StringExpr):
             return ObjectType(cls=StandardTypes.STRING_CLASS)
+
+        if isinstance(expr, NullExpr):
+            return NullType()
 
         if isinstance(expr, SymbolExpr):
             return self._resolve_symbol_expr(expr)

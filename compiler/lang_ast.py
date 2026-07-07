@@ -31,6 +31,10 @@ class StringExpr(_Expression):
     value: str
 
 @dataclass
+class NullExpr(_Expression):
+    pass
+
+@dataclass
 class SymbolExpr(_Expression):
     name: str
     symbol: 'Symbol' = field(init=False, default=None)  # Resolved symbol reference

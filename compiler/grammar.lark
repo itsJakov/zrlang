@@ -64,6 +64,7 @@ continue_stmt: "continue" _END
 ?primary: bool_expr
     | int_expr
     | string_expr
+    | null_expr
     | symbol_expr
     | alloc_expr
     | "(" expr ")"
@@ -74,6 +75,7 @@ continue_stmt: "continue" _END
 bool_expr: TRUE | FALSE
 int_expr: SIGNED_NUMBER
 string_expr: ESCAPED_STRING
+null_expr: "null"
 symbol_expr: CNAME
 member_expr: postfix "." CNAME
 call_expr: postfix "(" call_args ")"

@@ -7,7 +7,7 @@ from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, I
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type, ObjectType, IntType, BoolType
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
-    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt, LoopStmt, BreakStmt, ContinueStmt, AsExpr
+    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt, LoopStmt, BreakStmt, ContinueStmt, AsExpr, NullExpr
 
 
 def fatal_error(msg: str) -> NoReturn:
@@ -185,7 +185,7 @@ class IRLowerer:
                 elif isinstance(stmt.local.type, ObjectType):
                     value = IRNull()
                 else:
-                    fatal_error(f"No default value for type {stmt.type}")
+                    fatal_error(f"No default value for type {stmt.local.type}")
 
             self._function.func.locals.append(stmt.local)
             self._emit(IRStore(destination=stmt.local, value=value))
@@ -277,6 +277,9 @@ class IRLowerer:
             dest = self._function.temp_reg(expr.type)
             self._emit(IRStringLiteral(value=expr.value, destination=dest))
             return self._owned(dest)
+        if isinstance(expr, NullExpr):
+            # IRNull is not an object, so both take() and discard() no-op.
+            return self._borrowed(IRNull())
         if isinstance(expr, SymbolExpr):
             return self._lower_symbol_expr(expr)
         if isinstance(expr, MemberExpr):

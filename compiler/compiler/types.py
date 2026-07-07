@@ -40,6 +40,12 @@ class ObjectType(Type):
 
 
 @dataclass
+class NullType(Type):
+    def __repr__(self):
+        return "null"
+
+
+@dataclass
 class FunctionType(Type):
     param_types: Optional[list[Type]]  # None means unknown parameters (e.g. from Object)
     return_type: Type
@@ -54,6 +60,10 @@ class FunctionType(Type):
 
 def is_assignable_to(source: Type, target: Type) -> bool:
     if source == target:
+        return True
+
+    # null can be placed into any object
+    if isinstance(source, NullType) and isinstance(target, ObjectType):
         return True
 
     if isinstance(source, ObjectType) and isinstance(target, ObjectType):
