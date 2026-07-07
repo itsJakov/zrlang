@@ -416,20 +416,6 @@ class SemanticAnalyzer:
                 if isinstance(member_symbol, MethodSymbol):
                     return member_symbol.function_type()
 
-            if target_type.cls == StandardTypes.OBJECT_CLASS:
-                # Just like Objective-C >:)
-                self._warning(
-                    f"Accessing unknown method {expr.member} on Object, assuming it returns Object",
-                    expr
-                )
-                # Dynamic member access creates a unique method symbol for every access
-                # Kinda shit, but that's what you have to do to be cool as ObjC
-                expr.symbol = MethodSymbol(expr.member, is_static=False, params=[], return_type=ObjectType(StandardTypes.OBJECT_CLASS))
-                return FunctionType(
-                    param_types=None,
-                    return_type=ObjectType(StandardTypes.OBJECT_CLASS)
-                )
-
             self._error(f"Undefined member {expr.member} on class {target_type.cls.name}", expr)
             return None
 
