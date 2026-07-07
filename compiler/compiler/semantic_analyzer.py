@@ -6,7 +6,7 @@ from lang_ast import (
     SymbolExpr, MemberExpr, CallExpr, BinaryExpr, BinaryOperation,
     _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr,
     _Ast, ReturnStmt, BoolExpr, _TopLevelDecl, FuncDecorator,
-    LoopStmt, BreakStmt, ContinueStmt
+    LoopStmt, BreakStmt, ContinueStmt, AsExpr
 )
 from .types import (
     Type, VoidType, BoolType, IntType, ObjectType, FunctionType,
@@ -354,6 +354,9 @@ class SemanticAnalyzer:
         if isinstance(expr, CallExpr):
             return self._resolve_call_expr(expr)
 
+        if isinstance(expr, AsExpr):
+            return self._resolve_as_expr(expr)
+
         if isinstance(expr, BinaryExpr):
             return self._resolve_binary_expr(expr)
 
@@ -455,6 +458,35 @@ class SemanticAnalyzer:
 
         self._error(f"Attempting to call non-callable type {callee_type}", expr)
         return None
+
+    def _resolve_as_expr(self, expr: AsExpr) -> Optional[Type]:
+        value_type = self._analyze_expression(expr.value)
+        target_type = self._resolve_type_name(expr.cls_name, expr)
+
+        if value_type is None:
+            return None
+
+        if not isinstance(value_type, ObjectType):
+            self._error(f"Cannot cast non-object type to '{target_type}'", expr)
+            return None
+
+        if not isinstance(target_type, ObjectType):
+            self._error(f"Cannot cast '{value_type}' to non-object type", expr)
+            return None
+
+        expr.target_cls = target_type.cls
+
+        if target_type.cls == value_type.cls:
+            self._warning(f"Redundant cast", expr)
+            return target_type
+
+        # Check for a possible downcast or upcast
+        if not target_type.cls.is_subclass_of(value_type.cls)\
+                and not value_type.cls.is_subclass_of(target_type.cls):
+            self._error(f"Cannot cast '{value_type}' to '{target_type}'", expr)
+            return None
+
+        return target_type
 
     def _resolve_binary_expr(self, expr: BinaryExpr) -> Optional[Type]:
         lhs_type = self._analyze_expression(expr.lhs)

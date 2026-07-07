@@ -59,6 +59,7 @@ continue_stmt: "continue" _END
 ?postfix: primary
     | member_expr
     | call_expr
+    | as_expr
 
 ?primary: bool_expr
     | int_expr
@@ -76,6 +77,7 @@ string_expr: ESCAPED_STRING
 symbol_expr: CNAME
 member_expr: postfix "." CNAME
 call_expr: postfix "(" call_args ")"
+as_expr: postfix "as" CNAME
 alloc_expr: "new" CNAME
 
 call_args: [expr ("," expr)*]

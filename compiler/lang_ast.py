@@ -47,6 +47,13 @@ class CallExpr(_Expression):
     args: list[_Expression]
 
 @dataclass
+class AsExpr(_Expression):
+    value: _Expression
+    cls_name: str
+
+    target_cls: 'Class' = field(init=False, default=None)  # Resolved class symbol
+
+@dataclass
 class AllocExpr(_Expression):
     cls_name: str
 

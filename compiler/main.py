@@ -24,31 +24,26 @@ func main() -> Int {
 }
 
 class LoggerService {
-    func log(message: String) -> Object {
-        return new Object
+    func log(message: String) {
     }
     
-    func test() -> Object {
+    func test() {
         print("Testing Service: ".concat(self.toString()))
         self.log("TEST MESSAGE")
-        return new Object
     }
 }
 
 class ConsoleLoggerService : LoggerService {
-    override func log(message: String) -> Object {
+    override func log(message: String) {
         print(message)
-        return new Object
     }
 }
 
 class FileLoggerService : LoggerService {
-    override func log(message: String) -> Object{
+    override func log(message: String) {
         var newFile = new File
         newFile.initWithPath("log.txt")
-        newFile.append(message)
-        
-        return new Object
+        newFile.append(message)   
     }
 }
 
@@ -77,8 +72,8 @@ class Logger {
     
     func log(level: Int, message: String) {
         if level >= self.threshold {
-            self.services.get(0).log(message)
-            self.services.get(1).log(message)
+            (self.services.get(0) as LoggerService).log(message)
+            (self.services.get(1) as LoggerService).log(message)
         } else {
             print("Log level too low, skipping log")
         }
@@ -86,8 +81,8 @@ class Logger {
     
     func testAllServices() {
         print("Testing all services in ".concat(self.toString()))
-        self.services.get(0).test()
-        self.services.get(1).test()
+        (self.services.get(0) as LoggerService).test()
+        (self.services.get(1) as LoggerService).test()
     }
     
     override func toString() -> String {
