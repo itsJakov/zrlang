@@ -15,7 +15,7 @@ decorator_list: CNAME*
 block: "{" statement* "}"
 ?statement: return_stmt | var_stmt | expr_stmt | assign_stmt | if_stmt | loop_stmt | break_stmt | continue_stmt
 return_stmt: "return" [expr] _END
-var_stmt: "var" CNAME ["=" expr] _END
+var_stmt: "var" CNAME [":" CNAME] ["=" expr] _END
 expr_stmt: expr _END
 assign_stmt: lvalue "=" expr _END
 if_stmt: "if" expr block ["else" block]

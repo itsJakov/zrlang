@@ -278,8 +278,24 @@ class SemanticAnalyzer:
 
     def _analyze_statement(self, stmt: _Statement):
         if isinstance(stmt, VarStmt):
-            value_type = self._analyze_expression(stmt.expr)
-            stmt.local = LocalSymbol(name=stmt.name, type=value_type)
+            expected_type: Optional[Type] = self._resolve_type_name(stmt.type) if stmt.type else None
+            value_type: Optional[Type] = self._analyze_expression(stmt.expr) if stmt.expr else None
+
+            if not expected_type and not value_type:
+                self._error("Local variable statement must have an initial value or specified type", stmt)
+                return
+
+            # TODO: Disallow locals with void type
+
+            # If both type and initial value are set, make sure they're compatible
+            if expected_type and value_type and not is_assignable_to(value_type, expected_type):
+                self._error(
+                    f"Type mismatch in assignment: cannot assign {value_type} to {expected_type}",
+                    stmt.expr
+                )
+                return
+
+            stmt.local = LocalSymbol(name=stmt.name, type=expected_type or value_type)
             if not self.scope.define(stmt.local):
                 self._error(f"Variable '{stmt.name}' is already defined in this scope", stmt)
 
