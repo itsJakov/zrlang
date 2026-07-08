@@ -42,6 +42,12 @@ class StandardTypes:
                 return_type=ObjectType(OBJECT_CLASS)
             ),
             MethodSymbol(
+                name="getCount",
+                is_static=False,
+                params=[],
+                return_type=IntType()
+            ),
+            MethodSymbol(
                 name="getIsEmpty",
                 is_static=False,
                 params=[],

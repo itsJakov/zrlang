@@ -139,6 +139,20 @@ class LoopStmt(_Statement):
     block: list[_Statement]
 
 @dataclass
+class ForInStmt(_Statement):
+    name: str
+    type: Optional[str]
+    iterable: _Expression
+    block: list[_Statement]
+
+    # Created by the semantic analyzer
+    var_local: Optional['LocalSymbol'] = field(init=False, default=None)
+    iter_local: Optional['LocalSymbol'] = field(init=False, default=None)
+    iterator_method: Optional['MethodSymbol'] = field(init=False, default=None)
+    hasnext_method: Optional['MethodSymbol'] = field(init=False, default=None)
+    next_method: Optional['MethodSymbol'] = field(init=False, default=None)
+
+@dataclass
 class BreakStmt(_Statement):
     pass
 
