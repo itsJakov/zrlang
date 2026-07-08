@@ -197,7 +197,7 @@ class IRStringLiteral:
 
 
 @dataclass
-class IRCheckCast:
+class IRCheckDowncast:
     obj: IRReg
     cls: Class
 
@@ -215,7 +215,7 @@ IRInstruction = Union[
     IRFuncCall, IRStaticCall, IRVirtualCall, IRSuperCall,
     IRRetain, IRRelease,
     IRAlloc, IRStringLiteral,
-    IRCheckCast,
+    IRCheckDowncast,
 ]
 
 

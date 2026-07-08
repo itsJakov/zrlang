@@ -3,7 +3,7 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRAlloc, IRVirtualCall, _IRCall, \
     IRFuncCall, IRStore, IRStorage, IRLoad, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, \
-    IRStoreField, IRBinaryOp, IRBranch, IRRetain, IRRelease, IRStringLiteral, IRLoop, IRBreak, IRContinue, IRCheckCast, \
+    IRStoreField, IRBinaryOp, IRBranch, IRRetain, IRRelease, IRStringLiteral, IRLoop, IRBreak, IRContinue, IRCheckDowncast, \
     IRNull
 from compiler.symbols import FieldSymbol, Class, MethodSymbol, LocalSymbol, ParameterSymbol
 from compiler.types import VoidType, BoolType, IntType, ObjectType, Type
@@ -267,8 +267,8 @@ class LLVMIRGenerator:
                     f"call ptr @zre_string_literal(ptr {self._str_sym(instr.value)})"
                 )
 
-            elif isinstance(instr, IRCheckCast):
-                # TODO: Implement IRCheckCast for LLVM
+            elif isinstance(instr, IRCheckDowncast):
+                # TODO: Implement IRCheckDowncast for LLVM
                 self._emit(f"\t; TODO: call void @zre_check_downcast(ptr {self._reg(instr.obj)}, ptr @{instr.cls.name})")
 
     def _emit_call(self, call: _IRCall):

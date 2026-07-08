@@ -3,7 +3,7 @@ from typing import Optional, NoReturn
 
 from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, IRFuncCall, IRVirtualCall, IRStore, \
     IRLoad, IRAlloc, IRStoreField, IRClass, IRMethod, IRSuperCall, IRStaticCall, IRSelf, IRLoadField, IRBinaryOp, \
-    IRBranch, IRRelease, IRRetain, IRStringLiteral, IRLoop, IRBreak, IRContinue, IRCheckCast, IRNull
+    IRBranch, IRRelease, IRRetain, IRStringLiteral, IRLoop, IRBreak, IRContinue, IRCheckDowncast, IRNull
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type, ObjectType, IntType, BoolType
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
@@ -328,7 +328,16 @@ class IRLowerer:
 
     def _lower_as_expr(self, expr: AsExpr) -> _Value:
         value = self._lower_expr(expr.value)
-        self._emit(IRCheckCast(value.use(), expr.target_cls))
+
+        if not isinstance(expr.value.type, ObjectType):
+            fatal_error("Cannot cast non-object type")
+        value_cls = expr.value.type.cls
+
+        # Ignore upcasts or redundant casts
+        if value_cls == expr.target_cls or not expr.target_cls.is_subclass_of(value_cls):
+            return value
+
+        self._emit(IRCheckDowncast(value.use(), expr.target_cls))
         return value
 
     def _lower_call_expr(self, call: CallExpr) -> Optional[IRReg]:
