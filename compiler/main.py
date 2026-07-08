@@ -7,87 +7,48 @@ from lang_ast import parse
 from compiler import SemanticAnalyzer, LLVMIRGenerator
 
 INPUT = """
+class _ArrayIterator {
+    var arr: Array
+    var idx: Int
+    
+    func initWithArray(arr: Array) {
+        self.arr = arr
+        self.idx = 0
+    }
+    
+    func hasNext() -> Bool {
+        return self.idx < self.arr.getCount()   
+    }
+    
+    func next() -> Object {
+        var obj = self.arr.get(self.idx)
+        self.idx = self.idx + 1
+        return obj
+    }
+}
+
+class IterableArray : Array {
+    func iterator() -> _ArrayIterator {
+        var iter = new _ArrayIterator
+        iter.initWithArray(self)
+        return iter
+    } 
+}
+
 func main() -> Int {
-    var logger = Logger.new()
-    
-    print("=== Logging with message level over threshold ===")
-    logger.log(5, "This is a log message :)")
-    
-    print("=== Logging with message level under threshold ===")
-    logger.log(logger.threshold - 1, "You will never see this log message :(")
-    
-    print("=== Testing all services ===")
-    logger.testAllServices()
-    
-    print("=== RETURNING SOON ===")
+    var list = new IterableArray
+    list.append("Hello,")
+    list.append("world!")
+    list.append("This")
+    list.append("is")
+    list.append("my")
+    list.append("list.")
+
+    for str in list {
+        print(str)
+    }
+
     return 0
-}
-
-class LoggerService {
-    func log(message: String) {
-    }
-    
-    func test() {
-        print("Testing Service: ".concat(self.toString()))
-        self.log("TEST MESSAGE")
-    }
-}
-
-class ConsoleLoggerService : LoggerService {
-    override func log(message: String) {
-        print(message)
-    }
-}
-
-class FileLoggerService : LoggerService {
-    override func log(message: String) {
-        var newFile = new File
-        newFile.initWithPath("log.txt")
-        newFile.append(message)   
-    }
-}
-
-class Logger {
-    var services: Array
-    var threshold: Int
-    
-    static func new() -> Logger {
-        var logger = new Logger
-        logger.init()
-        logger.threshold = 2
-        
-        logger.addService(new ConsoleLoggerService)
-        logger.addService(new FileLoggerService)
-        
-        return logger
-    }
-    
-    func init() {
-        self.services = new Array
-    }
-    
-    func addService(service: LoggerService) {
-        self.services.append(service)
-    }
-    
-    func log(level: Int, message: String) {
-        if level >= self.threshold {
-            (self.services.get(0) as LoggerService).log(message)
-            (self.services.get(1) as LoggerService).log(message)
-        } else {
-            print("Log level too low, skipping log")
-        }
-    }
-    
-    func testAllServices() {
-        print("Testing all services in ".concat(self.toString()))
-        (self.services.get(0) as LoggerService).test()
-        (self.services.get(1) as LoggerService).test()
-    }
-    
-    override func toString() -> String {
-        return super.toString().concat(" (Custom toString)")
-    }
 }
 """
 

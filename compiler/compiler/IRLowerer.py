@@ -7,7 +7,8 @@ from compiler.IR import IRFunction, IRInstruction, IRReturn, IROperand, IRReg, I
 from compiler.symbols import FunctionSymbol, ParameterSymbol, Class, MethodSymbol, LocalSymbol, FieldSymbol
 from compiler.types import VoidType, Type, ObjectType, IntType, BoolType
 from lang_ast import _Statement, ReturnStmt, _Expression, BoolExpr, IntExpr, StringExpr, ExprStmt, CallExpr, SymbolExpr, \
-    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt, LoopStmt, BreakStmt, ContinueStmt, AsExpr, NullExpr
+    MemberExpr, VarStmt, AllocExpr, AssignStmt, BinaryExpr, IfStmt, LoopStmt, BreakStmt, ContinueStmt, AsExpr, NullExpr, \
+    ForInStmt
 
 
 def fatal_error(msg: str) -> NoReturn:
@@ -213,6 +214,11 @@ class IRLowerer:
             self._emit(IRLoop(body))
             return False
 
+        if isinstance(stmt, ForInStmt):
+            for synth in self._desugar_for_in(stmt):
+                self._lower_stmt(synth)
+            return False
+
         if isinstance(stmt, BreakStmt):
             self._emit_loop_exit(IRBreak())
             return True
@@ -226,6 +232,68 @@ class IRLowerer:
             return False
 
         fatal_error(f"Statement '{stmt}' is unknown")
+
+    def _desugar_for_in(self, stmt: ForInStmt) -> list[_Statement]:
+        """
+        Converts the for-in statement into a desugared loop
+
+        var $iter = coll.iterator()
+        loop {
+            if $iter.hasNext() { } else { break }
+            var x = $iter.next() as ElementType
+            ...body
+        }
+        """
+        meta = stmt.meta
+
+        # Builds '$iter' Expression
+        def iter_symbol_expr() -> SymbolExpr:
+            e = SymbolExpr(meta, stmt.iter_local.name)
+            e.symbol = stmt.iter_local
+            e.type = stmt.iter_local.type
+            return e
+
+        # Builds a method call
+        def method_call(target: _Expression, method: MethodSymbol) -> CallExpr:
+            callee = MemberExpr(meta, target=target, member=method.name)
+            callee.symbol = method
+            callee.type = method.function_type()
+            call = CallExpr(meta, callee=callee, args=[])
+            call.type = method.return_type
+            return call
+
+        # var $iter = coll.iterator()
+        iterator_call = method_call(stmt.iterable, stmt.iterator_method)
+        iter_var = VarStmt(meta, name=stmt.iter_local.name, type=None, expr=iterator_call)
+        iter_var.local = stmt.iter_local
+
+        # if $iter.hasNext() { } else { break }
+        hasnext_call = method_call(iter_symbol_expr(), stmt.hasnext_method)
+        exit_check = IfStmt(
+            meta,
+            condition=hasnext_call,
+            block=[],
+            else_block=[BreakStmt(meta)],
+        )
+
+        # var x = $iter.next() [as ElementType]
+        next_call = method_call(iter_symbol_expr(), stmt.next_method)
+        elem_type = stmt.next_method.return_type
+        var_type = stmt.var_local.type
+        if elem_type != var_type and isinstance(var_type, ObjectType):
+            # If the types are not matching, and they're both objects, insert a downcast
+            downcast = AsExpr(meta, value=next_call, cls_name=var_type.cls.name)
+            downcast.target_cls = var_type.cls
+            downcast.type = var_type
+            var_init: _Expression = downcast
+        else:
+            var_init = next_call
+        loop_var = VarStmt(meta, name=stmt.var_local.name, type=None, expr=var_init)
+        loop_var.local = stmt.var_local
+
+        loop = LoopStmt(meta, block=[exit_check, loop_var, *stmt.block])
+
+        return [iter_var, loop]
 
     def _lower_assign(self, stmt: AssignStmt) -> None:
         if not isinstance(stmt.assignee, (SymbolExpr, MemberExpr)):
