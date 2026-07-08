@@ -285,10 +285,12 @@ class SemanticAnalyzer:
                 self._error("Local variable statement must have an initial value or specified type", stmt)
                 return
 
-            # TODO: Disallow locals with void type
-
             if not expected_type and isinstance(value_type, NullType):
                 self._error("Cannot infer variable type from 'null'", stmt)
+                return
+
+            if isinstance(expected_type or value_type, VoidType):
+                self._error("Cannot use Void as type for a local variable", stmt)
                 return
 
             # If both type and initial value are set, make sure they're compatible
