@@ -56,6 +56,8 @@ Instance* zre_alloc(Class* cls);
 void zre_retain(Instance* obj);
 void zre_release(Instance* obj);
 
+void zre_check_downcast(Instance* obj, Class* targetCls);
+
 uint64_t* zre_field_storage(Instance* obj, const char* name);
 
 // - Convenience getters/setters for common types

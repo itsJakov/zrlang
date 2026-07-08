@@ -76,6 +76,19 @@ void zre_release(Instance* obj) {
     }
 }
 
+void zre_check_downcast(Instance* obj, Class* targetCls) {
+    Class* currentCls = obj->cls;
+    while (currentCls != NULL) {
+        if (currentCls == targetCls) {
+            return;
+        }
+        currentCls = currentCls->super;
+    }
+
+    fprintf(stderr, "[zre] Cannot downcast %s to %s!\n", obj->cls->name, targetCls->name);
+    assert(0);
+}
+
 uint64_t* zre_field_storage(Instance* obj, const char* name) {
     Class* currentCls = obj->cls;
     size_t offset = 0;

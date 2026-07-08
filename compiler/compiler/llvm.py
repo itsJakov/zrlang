@@ -29,6 +29,7 @@ class LLVMIRGenerator:
             "declare ptr @zre_alloc(ptr)",
             "declare void @zre_retain(ptr)",
             "declare void @zre_release(ptr)",
+            "declare void @zre_check_downcast(ptr, ptr)",
             "declare i1 @zre_field_get_bool(ptr, ptr)",
             "declare i64 @zre_field_get_int(ptr, ptr)",
             "declare ptr @zre_field_get_obj(ptr, ptr)",
@@ -268,8 +269,7 @@ class LLVMIRGenerator:
                 )
 
             elif isinstance(instr, IRCheckDowncast):
-                # TODO: Implement IRCheckDowncast for LLVM
-                self._emit(f"\t; TODO: call void @zre_check_downcast(ptr {self._reg(instr.obj)}, ptr @{instr.cls.name})")
+                self._emit(f"\tcall void @zre_check_downcast(ptr {self._reg(instr.obj)}, ptr @{instr.cls.name})")
 
     def _emit_call(self, call: _IRCall):
         args = [self._operand(arg) for arg in call.args]
