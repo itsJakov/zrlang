@@ -6,7 +6,7 @@ from lang_ast import (
     SymbolExpr, MemberExpr, CallExpr, BinaryExpr, BinaryOperation,
     _Statement, VarStmt, ExprStmt, AssignStmt, IfStmt, AllocExpr,
     _Ast, ReturnStmt, BoolExpr, _TopLevelDecl, FuncDecorator,
-    LoopStmt, BreakStmt, ContinueStmt, AsExpr, NullExpr
+    LoopStmt, BreakStmt, ContinueStmt, AsExpr, NullExpr, ForInStmt
 )
 from .types import (
     Type, VoidType, BoolType, IntType, ObjectType, FunctionType,
@@ -341,6 +341,9 @@ class SemanticAnalyzer:
             self._analyze_block(stmt.block)
             self._pop_scope()
 
+        elif isinstance(stmt, ForInStmt):
+            self._analyze_for_in(stmt)
+
         elif isinstance(stmt, BreakStmt):
             if not self.scope.in_loop:
                 self._error("'break' outside of a loop", stmt)
@@ -348,6 +351,85 @@ class SemanticAnalyzer:
         elif isinstance(stmt, ContinueStmt):
             if not self.scope.in_loop:
                 self._error("'continue' outside of a loop", stmt)
+
+    def _analyze_for_in(self, stmt: ForInStmt):
+        # 1. Type check the iterable expression
+        iter_expr_type = self._analyze_expression(stmt.iterable)
+        if iter_expr_type is None:
+            return
+        if not isinstance(iter_expr_type, ObjectType):
+            self._error(f"'for-in' expects an object, got {iter_expr_type}", stmt.iterable)
+            return
+
+        # 2. Look up iterator() on the iterable's class
+        iterator_method = iter_expr_type.cls.lookup_member("iterator")
+        if not isinstance(iterator_method, MethodSymbol) or iterator_method.is_static \
+                or len(iterator_method.params) != 0 \
+                or not isinstance(iterator_method.return_type, ObjectType):
+            self._error(
+                f"Type '{iter_expr_type}' is not iterable, needs 'iterator() -> Object'",
+                stmt.iterable,
+            )
+            return
+        iter_cls_type = iterator_method.return_type
+
+        # 3. Look up hasNext() and next() on the iterator's class
+        hasnext_method = iter_cls_type.cls.lookup_member("hasNext")
+        if not isinstance(hasnext_method, MethodSymbol) or hasnext_method.is_static \
+                or len(hasnext_method.params) != 0 \
+                or not isinstance(hasnext_method.return_type, BoolType):
+            self._error(
+                f"Iterator '{iter_cls_type}' must have 'hasNext() -> Bool'",
+                stmt.iterable,
+            )
+            return
+
+        next_method = iter_cls_type.cls.lookup_member("next")
+        if not isinstance(next_method, MethodSymbol) or next_method.is_static \
+                or len(next_method.params) != 0:
+            self._error(
+                f"Iterator '{iter_cls_type}' must have a 'next()' method",
+                stmt.iterable,
+            )
+            return
+        element_type = next_method.return_type
+        if isinstance(element_type, VoidType):
+            self._error(f"Iterator '{iter_cls_type}' 'next()' must return a value", stmt.iterable)
+            return
+
+        # 4. Handle the loop variable's type
+        expected_type = self._resolve_type_name(stmt.type) if stmt.type else None
+        var_type = expected_type or element_type
+        if isinstance(var_type, VoidType):
+            self._error("Loop variable cannot be Void", stmt)
+            return
+        if expected_type is not None:
+            # If object types are used, don't check assignability,
+            # because an automatic cast will be inserted
+            object_to_object = isinstance(expected_type, ObjectType) and isinstance(element_type, ObjectType)
+            if not object_to_object and not is_assignable_to(element_type, expected_type):
+                self._error(
+                    f"Iterator element type '{element_type}' is not assignable to '{expected_type}'",
+                    stmt,
+                )
+                return
+
+        # 5. Create symbols for the lowerer
+        # '$' is used because it's disallowed by the grammar
+        stmt.iter_local = LocalSymbol(name=f"$iter", type=iter_cls_type)
+        stmt.var_local = LocalSymbol(name=stmt.name, type=var_type)
+        stmt.iterator_method = iterator_method
+        stmt.hasnext_method = hasnext_method
+        stmt.next_method = next_method
+
+        # 6. Analyze the body and register the local
+        self._push_scope()
+        self.scope.in_loop = True
+        if not self.scope.define(stmt.var_local):
+            # Shouldn't happen because this is a fresh scope
+            self._error(f"Variable '{stmt.name}' is already defined in this scope", stmt)
+        self._analyze_block(stmt.block)
+        self._pop_scope()
 
     def _analyze_expression(self, expr: _Expression, allow_class_type: bool = False) -> Optional[Type]:
         # allow_class_type is used for static member, because usually it's not a valid type
