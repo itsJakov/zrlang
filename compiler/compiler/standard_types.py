@@ -1,3 +1,5 @@
+from typing import reveal_type
+
 from .symbols import Class, MethodSymbol, ParameterSymbol, FunctionSymbol
 from .types import VoidType, BoolType, IntType, ObjectType
 from .scope import Scope
@@ -53,6 +55,31 @@ class StandardTypes:
                 params=[],
                 return_type=BoolType()
             ),
+            MethodSymbol(
+                name="iterator",
+                is_static=False,
+                params=[],
+                return_type=ObjectType(
+                    Class(
+                        name="_ArrayIterator",
+                        parent=OBJECT_CLASS,
+                        symbols=[
+                            MethodSymbol(
+                                name="hasNext",
+                                is_static=False,
+                                params=[],
+                                return_type=BoolType()
+                            ),
+                            MethodSymbol(
+                                name="next",
+                                is_static=False,
+                                params=[],
+                                return_type=ObjectType(OBJECT_CLASS)
+                            )
+                        ]
+                    )
+                )
+            )
         ]
     )
 

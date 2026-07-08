@@ -24,7 +24,7 @@ static Instance* get(Instance* self, uint64_t index) {
     Instance** array = get_array(self);
     size_t len = arrlenu(array);
     if (index >= len) {
-        printf("[zre] Array (count = %lu) out of bounds!\n", len);
+        printf("[zre] Array index %llu (count = %lu) out of bounds!\n", index, len);
         assert(0);
         return NULL;
     }
@@ -52,6 +52,13 @@ static void append(Instance* self, Instance* item) {
     set_array(self, array);
 }
 
+static Instance* iterator(Instance* self) {
+    extern Class ArrayIterator;
+    Instance* iter = zre_alloc(&ArrayIterator);
+    zre_call(iter, "initWithArray", self);
+    return iter;
+}
+
 static Field fields[] = {
     { "array", kFieldTypeUInt64 }
 };
@@ -63,6 +70,7 @@ static Method instanceMethods[] = {
     { "getCount", getCount },
     { "getIsEmpty", getIsEmpty },
     { "append", append },
+    { "iterator", iterator }
 };
 
 Class Array = {
@@ -70,5 +78,5 @@ Class Array = {
     .super = &Object,
     .fields = { .len = 1, fields },
     .staticMethods = { 0 },
-    .instanceMethods = { .len = 6, instanceMethods }
+    .instanceMethods = { .len = 7, instanceMethods }
 };

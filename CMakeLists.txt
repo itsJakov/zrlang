@@ -21,6 +21,7 @@ add_library(zrlang STATIC
         runtime/stdlib/Object.c
         runtime/stdlib/String.c
         runtime/stdlib/Array.c
+        runtime/stdlib/ArrayIterator.c
         runtime/stdlib/Dictionary.c
         runtime/stdlib/String.c
         runtime/stdlib/Hasher.c

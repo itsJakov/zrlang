@@ -7,36 +7,8 @@ from lang_ast import parse
 from compiler import SemanticAnalyzer, LLVMIRGenerator
 
 INPUT = """
-class _ArrayIterator {
-    var arr: Array
-    var idx: Int
-    
-    func initWithArray(arr: Array) {
-        self.arr = arr
-        self.idx = 0
-    }
-    
-    func hasNext() -> Bool {
-        return self.idx < self.arr.getCount()   
-    }
-    
-    func next() -> Object {
-        var obj = self.arr.get(self.idx)
-        self.idx = self.idx + 1
-        return obj
-    }
-}
-
-class IterableArray : Array {
-    func iterator() -> _ArrayIterator {
-        var iter = new _ArrayIterator
-        iter.initWithArray(self)
-        return iter
-    } 
-}
-
 func main() -> Int {
-    var list = new IterableArray
+    var list = new Array
     list.append("Hello,")
     list.append("world!")
     list.append("This")
